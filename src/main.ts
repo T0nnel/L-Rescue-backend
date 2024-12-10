@@ -9,11 +9,10 @@ async function bootstrap() {
   
   // Enable CORS for specific origins
   app.enableCors({
-    origin: 'https://nextjs-boilerplate-five-opal-54.vercel.app',  // Allow requests from this origin (frontend)
-    methods: 'GET, POST, PUT, DELETE', // Allowed methods
-    allowedHeaders: 'Content-Type, Authorization', // Allowed headers
+    origin: 'https://nextjs-boilerplate-five-opal-54.vercel.app', // Your frontend's origin
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true, // If you need to send cookies or HTTP auth
   });
-  
   
   
   await app.listen(3001);
