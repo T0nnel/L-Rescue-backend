@@ -9,7 +9,7 @@ async function bootstrap() {
   
   // Enable CORS for specific origins
   app.enableCors({
-    origin: 'http://localhost:3000',  // Allow requests from this origin (frontend)
+    origin: 'https://nextjs-boilerplate-five-opal-54.vercel.app',  // Allow requests from this origin (frontend)
     methods: 'GET, POST, PUT, DELETE', // Allowed methods
     allowedHeaders: 'Content-Type, Authorization', // Allowed headers
   });
