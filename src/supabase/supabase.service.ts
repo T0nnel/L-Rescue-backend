@@ -1,10 +1,12 @@
 /* eslint-disable prettier/prettier */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Injectable } from '@nestjs/common';
 import * as dotenv from 'dotenv';
-import { createClient } from '@supabase/supabase-js'; // Import the createClient function
+import { createClient } from '@supabase/supabase-js';
 
 // Load environment variables from .env file
 dotenv.config();
+
 @Injectable()
 export class SupabaseService {
   private supabaseUrl: string = process.env.SUPABASE_URL;
@@ -14,32 +16,44 @@ export class SupabaseService {
   private emailId: string | null = null; // Store email ID after initial insertion
 
   constructor() {
+    // Ensure that the environment variables are set
     if (!this.supabaseUrl || !this.supabaseKey) {
-      throw new Error('SUPABASE_URL or SUPABASE_ANON_KEY is missing');
+      throw new Error('SUPABASE_URL or SUPABASE_KEY is missing');
     }
 
+    // Initialize the Supabase client
     this.supabase = createClient(this.supabaseUrl, this.supabaseKey);
   }
 
   async insertData(data: any) {
     console.log('Received data:', data);
 
+    // Validate incoming data
     if (!data) {
       console.error('Error: Missing data in request');
       throw new Error('No data provided');
     }
 
-    // Accumulate received data
+    // Merge incoming data with existing collected data
     this.collectedData = { ...this.collectedData, ...data };
 
     try {
-      if (this.collectedData.email && !this.emailId) {
-        // Insert email if not saved yet
+      // Check if selectedMembership exists, validate it if present
+      if (this.collectedData.selectedMembership) {
+        const validMemberships = ['Single Attorney', 'Firm Membership'];
+        if (!validMemberships.includes(this.collectedData.selectedMembership)) {
+          console.error('Invalid membership type:', this.collectedData.selectedMembership);
+          throw new Error('Invalid membership type. Allowed values are "Single Attorney" or "Firm Membership".');
+        }
+      }
+
+      if (!this.emailId && this.collectedData.email) {
+        // Insert the email if it hasn't been saved yet
         const { data: insertedEmail, error: emailError } = await this.supabase
           .from('waitlist')
           .insert([{ email: this.collectedData.email }])
-          .select('id')
-          .single();
+          .select('id') // Only fetch the inserted ID
+          .single(); // Ensure a single result is returned
 
         if (emailError) {
           console.error('Error inserting email into Supabase:', emailError);
@@ -51,24 +65,26 @@ export class SupabaseService {
           throw new Error('Email insertion failed');
         }
 
-        this.emailId = insertedEmail.id;
+        this.emailId = insertedEmail.id; // Store the email ID for later updates
         console.log('Email inserted successfully with ID:', this.emailId);
 
-        // Wait for further data (membership type)
-        return null; // This returns until we get all data
+        // Return null indicating partial data has been processed
+        return null;
       }
 
-      // Now that email is set, we validate membership
-      if (this.collectedData.selectedMembership) {
-        const validMemberships = ['Single Attorney', 'Firm Membership'];
-        if (!validMemberships.includes(this.collectedData.selectedMembership)) {
-          console.error('Invalid membership type:', this.collectedData.selectedMembership);
-          throw new Error('Invalid membership type. Allowed values are "Single Attorney" or "Firm Membership".');
+      if (this.emailId && this.collectedData.selectedMembership) {
+        // Validate emailId and ensure it's a valid number before update
+        if (!this.emailId || isNaN(Number(this.emailId))) {
+          console.error('Invalid email ID during update');
+          throw new Error('Invalid email ID during update');
         }
+
+        // Prepare data for updating, excluding email to prevent re-insertion
+        const { email, ...updateData } = this.collectedData;
 
         const { data: updatedData, error: updateError } = await this.supabase
           .from('waitlist')
-          .update({ ...this.collectedData, email: undefined }) // Exclude email to prevent update clash
+          .update(updateData)
           .eq('id', this.emailId);
 
         if (updateError) {
@@ -78,15 +94,16 @@ export class SupabaseService {
 
         console.log('Record updated successfully:', updatedData);
 
-        // Reset data after update
+        // Reset internal storage after successful update
         this.collectedData = {};
         this.emailId = null;
 
         return updatedData;
       }
 
-      console.log('Waiting for membership data...');
+      console.log('Waiting for more data to complete the update...');
       return null;
+
     } catch (error) {
       console.error('Error during Supabase operation:', error);
       throw new Error(`Supabase operation error: ${error.message}`);
