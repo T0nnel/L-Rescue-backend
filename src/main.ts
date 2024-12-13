@@ -8,7 +8,8 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       'https://nextjs-boilerplate-five-opal-54.vercel.app',
-      'http://localhost:3000',                                                 
+      'http://localhost:3000',
+      'https://main.d1d7vpftwumgan.amplifyapp.com'                                       
     ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     allowedHeaders: 'Content-Type, Authorization',
