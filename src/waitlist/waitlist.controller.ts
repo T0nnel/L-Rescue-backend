@@ -9,21 +9,18 @@ export class WaitlistController {
   @Post('save')
   async addToWaitlist(@Body() data: any) {
     try {
-      console.log('Incoming request data:', data);
-
       const result = await this.waitlistService.addToWaitlist(data);
-
+      
+      // Case when partial data (email) was saved earlier
       if (!result) {
-        return { message: 'Partial data saved. Awaiting additional details.' };
+        return { message: 'Email saved. Awaiting additional data (membership).' };
       }
 
+      // Case when both email and membership type have been processed successfully
       return { message: 'Data saved successfully.', data: result };
     } catch (error) {
-      console.error('Error in WaitlistController:', error.message);
-      throw new HttpException(
-        `Error saving data: ${error.message}`,
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      console.error('Error in WaitlistController:', error);
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 }
