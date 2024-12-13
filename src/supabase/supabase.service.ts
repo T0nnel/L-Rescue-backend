@@ -47,14 +47,16 @@ export class SupabaseService {
         }
       }
 
-      // Ensure that we capture the 'state' field, along with other fields
-      const state = this.collectedData.state || ''; // Defaulting to empty string if state is not provided
+      // Extract the state value from the field related to bar license
+      // Assume the data contains `barLicense` or another related field
+      const barLicenseField = this.collectedData.barLicense || ''; // Defaulting to empty if not found
+      const state = barLicenseField.split(' ')[0] || ''; // Grab the first part (before the space, assuming it's the state)
 
       if (!this.emailId && this.collectedData.email) {
         // Insert the email and state if it hasn't been saved yet
         const { data: insertedEmail, error: emailError } = await this.supabase
           .from('waitlist')
-          .insert([{ email: this.collectedData.email, state }]) // Insert state as well
+          .insert([{ email: this.collectedData.email, state }]) // Insert state along with email
           .select('id') // Only fetch the inserted ID
           .single(); // Ensure a single result is returned
 
@@ -83,11 +85,11 @@ export class SupabaseService {
         }
 
         // Prepare data for updating, including state to be updated along with other values
-        const { email, state, ...updateData } = this.collectedData;
+        const { email, barLicense, state, ...updateData } = this.collectedData; // State already extracted
 
         const { data: updatedData, error: updateError } = await this.supabase
           .from('waitlist')
-          .update({ ...updateData, state }) // Update state and other fields
+          .update({ ...updateData, state }) // Update state along with other fields
           .eq('id', this.emailId);
 
         if (updateError) {
