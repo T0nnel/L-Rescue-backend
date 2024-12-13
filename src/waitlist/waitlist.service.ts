@@ -1,4 +1,7 @@
 /* eslint-disable prettier/prettier */
+import { Injectable } from '@nestjs/common';
+import { SupabaseService } from '../supabase/supabase.service';
+
 @Injectable()
 export class WaitlistService {
   constructor(private readonly supabaseService: SupabaseService) {}
@@ -12,3 +15,4 @@ export class WaitlistService {
     }
   }
 }
+
