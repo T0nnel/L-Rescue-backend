@@ -47,11 +47,14 @@ export class SupabaseService {
         }
       }
 
+      // Ensure that we capture the 'state' field, along with other fields
+      const state = this.collectedData.state || ''; // Defaulting to empty string if state is not provided
+
       if (!this.emailId && this.collectedData.email) {
-        // Insert the email if it hasn't been saved yet
+        // Insert the email and state if it hasn't been saved yet
         const { data: insertedEmail, error: emailError } = await this.supabase
           .from('waitlist')
-          .insert([{ email: this.collectedData.email }])
+          .insert([{ email: this.collectedData.email, state }]) // Insert state as well
           .select('id') // Only fetch the inserted ID
           .single(); // Ensure a single result is returned
 
@@ -79,12 +82,12 @@ export class SupabaseService {
           throw new Error('Invalid email ID during update');
         }
 
-        // Prepare data for updating, excluding email to prevent re-insertion
-        const { email, ...updateData } = this.collectedData;
+        // Prepare data for updating, including state to be updated along with other values
+        const { email, state, ...updateData } = this.collectedData;
 
         const { data: updatedData, error: updateError } = await this.supabase
           .from('waitlist')
-          .update(updateData)
+          .update({ ...updateData, state }) // Update state and other fields
           .eq('id', this.emailId);
 
         if (updateError) {
