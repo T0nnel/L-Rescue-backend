@@ -32,6 +32,14 @@ export class SupabaseService {
       console.error('Error: Missing data in request');
       throw new Error('No data provided');
     }
+    if (!data.email) {
+      console.error('Error: Email is required for insertion');
+      throw new Error('Missing email in data');
+    }
+    if (data.selectedMembership && !['single attorney', 'firm membership'].includes(data.selectedMembership)) {
+      console.error(`Error: Invalid membership type: ${data.selectedMembership}`);
+      throw new Error('Invalid membership type. Must be "single attorney" or "firm membership".');
+    }
 
     // Merge incoming data with existing collected data
     this.collectedData = { ...this.collectedData, ...data };
@@ -63,10 +71,15 @@ export class SupabaseService {
       }
 
       if (this.emailId && this.collectedData.selectedMembership) {
-        // Update the record once all data is available
+        // Prepare data to update
+        const updatePayload = {
+          ...this.collectedData,
+          email: undefined, // Prevent email updates
+        };
+
         const { data: updatedData, error: updateError } = await this.supabase
           .from('waitlist')
-          .update({ ...this.collectedData, email: undefined }) // Exclude email from updates
+          .update(updatePayload)
           .eq('id', this.emailId);
 
         if (updateError) {
@@ -74,7 +87,7 @@ export class SupabaseService {
           throw new Error(`Supabase update error: ${updateError.message}`);
         }
 
-        console.log('Record updated successfully:', updatedData);
+        console.log(`Record updated successfully with membership "${this.collectedData.selectedMembership}":`, updatedData);
 
         // Reset internal storage after successful update
         this.collectedData = {};
