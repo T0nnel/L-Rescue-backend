@@ -40,23 +40,32 @@ export class SupabaseService {
     try {
       // Check if selectedMembership exists, validate it if present
       if (this.collectedData.selectedMembership) {
-        const validMemberships = ['Single Attorney', 'Firm Membership'];
+        const validMemberships = ['Single Attorney', 'Firm Membership', 'Pro'];
         if (!validMemberships.includes(this.collectedData.selectedMembership)) {
           console.error('Invalid membership type:', this.collectedData.selectedMembership);
-          throw new Error('Invalid membership type. Allowed values are "Single Attorney" or "Firm Membership".');
+          throw new Error('Invalid membership type. Allowed values are "Single Attorney", "Firm Membership", "Pro".');
         }
       }
 
-      // Extract the state value from the field related to bar license
-      // Assume the data contains `barLicense` or another related field
-      const barLicenseField = this.collectedData.barLicense || ''; // Defaulting to empty if not found
-      const state = barLicenseField.split(' ')[0] || ''; // Grab the first part (before the space, assuming it's the state)
-
       if (!this.emailId && this.collectedData.email) {
-        // Insert the email and state if it hasn't been saved yet
+        // Insert the email along with sendEmailUpdates and other fields like state and licenses
         const { data: insertedEmail, error: emailError } = await this.supabase
           .from('waitlist')
-          .insert([{ email: this.collectedData.email, state }]) // Insert state along with email
+          .insert([
+            {
+              email: this.collectedData.email,
+              sendEmailUpdates: this.collectedData.sendEmailUpdates || false,
+              licenses: this.collectedData.licenses, // Licenses field, should be an object (e.g., { "Alabama": "112" })
+              legalPractices: this.collectedData.legalPractices, 
+              firstName: this.collectedData.firstName,
+              lastName: this.collectedData.lastName,
+              firmName: this.collectedData.firmName,
+              firmAddress: this.collectedData.firmAddress,
+              phone: this.collectedData.phone,
+              selectedMembership: this.collectedData.selectedMembership,
+              state: this.collectedData.state // Ensure state is the same
+            }
+          ])
           .select('id') // Only fetch the inserted ID
           .single(); // Ensure a single result is returned
 
@@ -78,18 +87,17 @@ export class SupabaseService {
       }
 
       if (this.emailId && this.collectedData.selectedMembership) {
-        // Validate emailId and ensure it's a valid number before update
-        if (!this.emailId || isNaN(Number(this.emailId))) {
-          console.error('Invalid email ID during update');
-          throw new Error('Invalid email ID during update');
-        }
-
-        // Prepare data for updating, including state to be updated along with other values
-        const { email, barLicense, state, ...updateData } = this.collectedData; // State already extracted
+        // Prepare data for updating, including the new `state`, `licenses`, and other fields
+        const { email, sendEmailUpdates, ...updateData } = this.collectedData;
 
         const { data: updatedData, error: updateError } = await this.supabase
           .from('waitlist')
-          .update({ ...updateData, state }) // Update state along with other fields
+          .update({
+            ...updateData,
+            sendEmailUpdates: sendEmailUpdates || false, // Update sendEmailUpdates
+            licenses: this.collectedData.licenses, // Update the licenses field
+            state: this.collectedData.state // Update the state to match the incoming data
+          })
           .eq('id', this.emailId);
 
         if (updateError) {
@@ -108,10 +116,10 @@ export class SupabaseService {
 
       console.log('Waiting for more data to complete the update...');
       return null;
-
+      
     } catch (error) {
       console.error('Error during Supabase operation:', error);
       throw new Error(`Supabase operation error: ${error.message}`);
     }
-  }
+}
 }
