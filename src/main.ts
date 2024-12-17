@@ -9,7 +9,8 @@ async function bootstrap() {
     origin: [
       'https://nextjs-boilerplate-five-opal-54.vercel.app',
       'http://localhost:3000',
-      'https://main.d1d7vpftwumgan.amplifyapp.com'                                       
+      'https://main.d1d7vpftwumgan.amplifyapp.com',
+      'https://dev.d1wv5zmnajfzzh.amplifyapp.com'                                       
     ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     allowedHeaders: 'Content-Type, Authorization',
