@@ -1,6 +1,4 @@
 /* eslint-disable prettier/prettier */
-// src/mailer/mailer.service.ts
-
 import { Injectable, Logger } from '@nestjs/common';
 import { Resend } from 'resend';
 

@@ -1,6 +1,4 @@
 /* eslint-disable prettier/prettier */
-// src/mailer/mailer.controller.ts
-
 import { Controller, Post, Body, HttpCode, HttpStatus, Logger, BadRequestException } from '@nestjs/common';
 import { MailerService } from './mailer.service';
 
