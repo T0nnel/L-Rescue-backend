@@ -1,5 +1,5 @@
 /* eslint-disable prettier/prettier */
-import { Controller, Post, Body, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, Get, HttpException, HttpStatus } from '@nestjs/common';
 import { WaitlistService } from './waitlist.service';
 
 @Controller('waitlist')
@@ -10,17 +10,23 @@ export class WaitlistController {
   async addToWaitlist(@Body() data: any) {
     try {
       const result = await this.waitlistService.addToWaitlist(data);
-      
-      // Case when partial data (email) was saved earlier
       if (!result) {
-        return { message: 'Email saved. Awaiting additional data (membership).' };
+        return { message: 'Email saved. Awaiting additional data.' };
       }
-
-      // Case when both email and membership type have been processed successfully
       return { message: 'Data saved successfully.', data: result };
     } catch (error) {
       console.error('Error in WaitlistController:', error);
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(`Failed to save data: ${error.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+  @Get('email')
+  async getWaitlistEmail() {
+    try {
+      const email = await this.waitlistService.getEmail();
+      return { email };  
+    } catch (error) {
+      console.error('Error in WaitlistController while fetching email:', error);
+      throw new Error(`Failed to get email: ${error.message}`);
     }
   }
 }

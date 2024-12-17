@@ -14,5 +14,14 @@ export class WaitlistService {
       throw new Error(`WaitlistService error: ${error.message}`);
     }
   }
+  
+  async getEmail(): Promise<string | null> {
+    try {
+      const email = await this.supabaseService.getEmail();
+      return email; 
+    } catch (error) {
+      console.error('Error in WaitlistService while retrieving email:', error);
+      throw new Error(`WaitlistService error in fetching email: ${error.message}`);
+    }
+  }
 }
-

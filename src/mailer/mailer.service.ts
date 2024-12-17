@@ -1,40 +1,51 @@
 /* eslint-disable prettier/prettier */
-import { Injectable } from '@nestjs/common';
-import * as nodemailer from 'nodemailer';
+// src/mailer/mailer.service.ts
+
+import { Injectable, Logger } from '@nestjs/common';
+import { Resend } from 'resend';
 
 @Injectable()
 export class MailerService {
-  private transporter;
+  private readonly logger = new Logger(MailerService.name);
+  private readonly resendClient: Resend;
 
   constructor() {
-    this.transporter = nodemailer.createTransport({
-      service: 'gmail', // Use your email service (e.g., Gmail, SMTP server)
-      auth: {
-        user: process.env.EMAIL_USER, // Environment variable for email
-        pass: process.env.EMAIL_PASS, // Environment variable for password
-      },
-    });
+    this.resendClient = new Resend(process.env.RESEND_API_KEY);
   }
 
-  
-  /* async onModuleInit() {
-    // Debug: Send a test email when the app starts
+  async sendEmail(to: string): Promise<any> {
+    const subject = 'Please complete questions for our waitlist';
+    const htmlContent = `
+      <p>You will receive an email when LegalRescue.ai officially launches!</p>
+    `;
+
+    return this.send(to, subject, htmlContent);
+  }
+
+  async securedEmail(to: string): Promise<any> {
+    const subject = 'Waitlist Discount Secured!';
+    const htmlContent = `
+      <p>Thank you for completing the waitlist form. Your discount offer has been secured for your bar license(s).</p>`;
+
+    return this.send(to, subject, htmlContent);
+  }
+
+  private async send(to: string, subject: string, htmlContent: string): Promise<any> {
     try {
-      await this.sendNoReplyEmail('totimbugz@gmail.com');
-      console.log('Test email sent successfully');
-    } catch (error) {
-      console.error('Error sending test email:', error.message);
-    }
-  }
- */
-  async sendNoReplyEmail(email: string): Promise<void> {
-    const mailOptions = {
-      from: '"LegalRescue.ai" <no-reply@legalrescue.ai>',
-      to: email,
-      subject: 'Test Email from LegalRescue.ai',
-      text: 'This is a test email. If you received this, the email service is working.',
-    };
+      const response = await this.resendClient.emails.send({
+        from: 'LegalRescue <noreply@legalrescue.ai>',
+        to,
+        subject,
+        html: htmlContent,
+      });
 
-    await this.transporter.sendMail(mailOptions);
+      const responseId = (response as any)?.id || 'Unknown ID';
+      this.logger.log(`Email sent successfully: ${responseId}`);
+
+      return response;
+    } catch (error) {
+      this.logger.error('Error sending email:', error.message || error);
+      throw error;
+    }
   }
 }

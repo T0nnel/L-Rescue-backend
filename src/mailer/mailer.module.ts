@@ -1,10 +1,12 @@
 /* eslint-disable prettier/prettier */
+// src/mailer/mailer.module.ts
+
 import { Module } from '@nestjs/common';
-import { MailerService } from './mailer.service';
 import { MailerController } from './mailer.controller';
+import { MailerService } from './mailer.service';
 
 @Module({
-  controllers: [MailerController],
-  providers: [MailerService],
+  controllers: [MailerController], 
+  providers: [MailerService], 
 })
 export class MailerModule {}
