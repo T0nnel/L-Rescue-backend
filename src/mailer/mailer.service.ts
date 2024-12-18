@@ -14,7 +14,7 @@ export class MailerService {
   async sendEmail(to: string): Promise<any> {
     const subject = 'Please complete questions for our waitlist';
     const htmlContent = `
-      <p>To secure your discount offer, please answer the remaining questions on the waitlist.
+      <p>To secure your discount offer, please answer the remaining questions on the waitlist.<br/>
       You will receive an email when LegalRescue.ai officially launches
       </p>
     `;
