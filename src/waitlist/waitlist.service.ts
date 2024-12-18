@@ -1,4 +1,5 @@
 /* eslint-disable prettier/prettier */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Injectable } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 
@@ -23,5 +24,18 @@ export class WaitlistService {
       console.error('Error in WaitlistService while retrieving email:', error);
       throw new Error(`WaitlistService error in fetching email: ${error.message}`);
     }
+  }
+  async getWaitlistCount(): Promise<number> {
+    const supabase = this.supabaseService.getClient();
+    const { data, error, count } = await supabase
+      .from('waitlist')
+      .select('*', { count: 'exact', head: true }); // Count rows without fetching all data
+
+    if (error) {
+      console.error('Error fetching waitlist count:', error);
+      throw new Error('Failed to fetch waitlist count.');
+    }
+
+    return count || 0;
   }
 }

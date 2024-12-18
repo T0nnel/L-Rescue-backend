@@ -2,7 +2,7 @@
 /* eslint-disable prefer-const */
 import { Injectable } from '@nestjs/common';
 import * as dotenv from 'dotenv';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 dotenv.config();
 
@@ -126,5 +126,8 @@ export class SupabaseService {
       console.error('Error fetching email from Supabase:', error);
       throw new Error('Error fetching email.');
     }
+  }
+  getClient(): SupabaseClient {
+    return this.supabase;
   }
 }

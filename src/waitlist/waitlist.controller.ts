@@ -29,4 +29,9 @@ export class WaitlistController {
       throw new Error(`Failed to get email: ${error.message}`);
     }
   }
+  @Get('count')
+  async getWaitlistCount() {
+    const total = await this.waitlistService.getWaitlistCount();
+    return { total };
+  } 
 }
