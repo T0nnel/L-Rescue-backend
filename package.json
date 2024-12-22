@@ -27,6 +27,7 @@
     "@nestjs/platform-express": "^10.4.13",
     "@nestjs/typeorm": "^10.0.2",
     "@supabase/supabase-js": "^2.47.2",
+    "axios": "^1.7.9",
     "class-validator": "^0.14.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
