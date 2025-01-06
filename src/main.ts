@@ -11,7 +11,8 @@ async function bootstrap() {
       'http://localhost:3000',
       "https://www.legalrescue.ai",
       'https://main.d1d7vpftwumgan.amplifyapp.com',
-      'https://dev.d1wv5zmnajfzzh.amplifyapp.com'                                       
+      'https://dev.d1wv5zmnajfzzh.amplifyapp.com'     ,
+      'https://africanblockchamp.io'                                  
     ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     allowedHeaders: 'Content-Type, Authorization',
