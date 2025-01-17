@@ -73,10 +73,24 @@ export class SupabaseService {
         return null; 
       }
 
+
       // Step 2
       if (this.emailId && this.collectedData.selectedMembership) {
         console.log('Attempting to update record with collected data...');
 
+
+        const { data: maxPositionData, error: maxPositionError } = await this.supabase
+        .from('waitlist')
+        .select('waitlist_position')
+        .order('waitlist_position', { ascending: false })
+        .limit(1)
+        .single();
+        if(maxPositionError){
+          console.log(maxPositionError.message);
+          
+        }
+
+        const nextPosition = maxPositionData?.waitlist_position ? (maxPositionData.waitlist_position + 1) : 1;
         const { data: updatedData, error: updateError } = await this.supabase
           .from('waitlist')
           .update({
@@ -84,8 +98,9 @@ export class SupabaseService {
             email: undefined, 
             state: this.collectedData.state, 
             licenses: this.collectedData.licenses, 
+            waitlist_position: nextPosition
           }) 
-          .eq('id', this.emailId); 
+          .eq('id', this.emailId);
         if (updateError) {
           console.error('Error updating Supabase record:', updateError);
           throw new Error(`Failed to update record: ${updateError.message}`);
