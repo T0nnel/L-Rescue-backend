@@ -16,6 +16,10 @@ export class SupabaseService {
 
   constructor() {
     if (!this.supabaseUrl || !this.supabaseKey) {
+      console.log(this.supabaseUrl);
+      console.log(this.supabaseKey);
+      
+      
       throw new Error('SUPABASE_URL or SUPABASE_ANON_KEY is missing');
     }
 
@@ -74,9 +78,25 @@ export class SupabaseService {
       }
 
       // Step 2
-      if (this.emailId && this.collectedData.selectedMembership) {
+      if (this.emailId && this.collectedData.selected_membership) {
         console.log('Attempting to update record with collected data...');
 
+
+        const { data: maxPositionData, error: maxPositionError } = await this.supabase
+        .from('waitlist')
+        .select('waitlist_position')
+        .order('waitlist_position', { ascending: false })
+    
+        if(maxPositionError){
+          console.log(maxPositionError.message);
+          throw new Error(`Failed to fetch max position: ${maxPositionError.message}`);
+          
+        }
+
+        
+        
+
+        const nextPosition = maxPositionData[1]?.waitlist_position ? (maxPositionData[1].waitlist_position + 1) : 1;
         const { data: updatedData, error: updateError } = await this.supabase
           .from('waitlist')
           .update({
@@ -84,8 +104,10 @@ export class SupabaseService {
             email: undefined, 
             state: this.collectedData.state, 
             licenses: this.collectedData.licenses, 
+            waitlist_position: nextPosition
           }) 
-          .eq('id', this.emailId); 
+          .eq('id', this.emailId)
+          .select('*')
         if (updateError) {
           console.error('Error updating Supabase record:', updateError);
           throw new Error(`Failed to update record: ${updateError.message}`);
@@ -112,7 +134,7 @@ export class SupabaseService {
       const { data, error } = await this.supabase
         .from('waitlist')
         .select('email')
-        .order('id', { ascending: false }) // Sort by id in descending order 
+        .order('id', { ascending: false })
         .limit(1) 
         .single();
 

@@ -1,5 +1,6 @@
 /* eslint-disable prettier/prettier */
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 
 @Injectable()
@@ -7,8 +8,8 @@ export class MailerService {
   private readonly logger = new Logger(MailerService.name);
   private readonly resendClient: Resend;
 
-  constructor() {
-    this.resendClient = new Resend(process.env.RESEND_API_KEY);
+  constructor(private configService: ConfigService) {
+    this.resendClient = new Resend(this.configService.get('RESEND_API_KEY'));
   }
 
   async sendEmail(to: string): Promise<any> {
