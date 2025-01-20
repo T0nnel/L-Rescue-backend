@@ -42,12 +42,12 @@ export class AttorneyAuthService {
         this.logger.error(`Error retrieving user from waitlist: ${waitlistError.message}`);
         throw new Error(`Failed to check waitlist status: ${waitlistError.message}`);
       }
-      const waitlistPosition = waitlistUsers[0].waitlistPosition
+ 
 
       
       const signupData = {
         ...data,
-        waitlistPosition: waitlistPosition
+        
       };
 
    
@@ -69,21 +69,20 @@ export class AttorneyAuthService {
       //create new subscription
       const attorneyId = newUser.id 
       if(waitlistUsers){
-        const Licenses = data.statesLicensing.forEach((license) => {
-          return license.barLicenseNumber
-        })
+       const Licenses = data.statesLicensing.map((license) => license.barLicenseNumber)
+       
        const attorneyTier =  await this.discountService.getAttorneyTier(email, Licenses as unknown as string[] )
        if(!attorneyTier){
         throw new Error("the licenses do not much the details on the waitlist")
        }
        
-       const sessionUrl = this.stripeService.createCheckoutSession(
+       const session = await this.stripeService.createCheckoutSession(
         normalPrice,
         attorneyTier,
         email,
         attorneyId
        )
-       return {newUser, sessionUrl}
+       return {newUser, url: session.url }
 
       }else{
         const attorneyTier = null

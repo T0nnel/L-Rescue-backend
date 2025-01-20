@@ -4,9 +4,12 @@ import { AttorneyAuthService } from './attorney-auth.service';
 import { AttorneyAuthController } from './attorney-auth.controller';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import { DiscountService } from 'src/discount/discount.service';
+import { StripeModule } from 'src/stripe/stripe.module';
+import { StripeService } from 'src/stripe/Stripe.service';
 
 @Module({
-  providers: [AttorneyAuthService, SupabaseService, DiscountService],
+  imports: [StripeModule],
+  providers: [AttorneyAuthService, SupabaseService, StripeService, DiscountService],
   controllers: [AttorneyAuthController]
 })
 export class AttorneyAuthModule {}
