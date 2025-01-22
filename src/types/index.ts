@@ -3,23 +3,23 @@
 export interface educationEntry{
     institution_name: string,
     degree_name: string,
-    year_of_degree: string
+    year_of_degree: number
 }
 
 export interface membershipEntry {
     name: string,
-    year_of_entry: string,
-    year_of_end: string
+    year_of_entry: number,
+    year_of_end: number
 }
 
 export interface awardsEntry{
     name_of_award: string,
-    year_of_award: string
+    year_of_award: number
 }
 
 export interface CaseEntry {
     title: string,
-    descrption: string
+    description: string
 
 }
 
@@ -54,16 +54,7 @@ export interface AttorneyProfile {
     updatedAt: string
 }
 
-export interface AttorneyLicense {
-    id: string,
-    attorney_id: string,
-    state: string,
-    license_number: string,
-    waitlisted_position: number,
-    sign_up_date: string,
-    trial_end_date: string,
-    discount_end_date: string
-}
+
 
 // Types for subscription status tracking
 export interface AttorneySubscription {

@@ -302,7 +302,7 @@ export class StripeService {
 
             phases.push({
                 price: discountedPriceId,
-                iterations: 3
+                iterations: 12
             });
 
             const fullPriceId = await this.createOrGetPrice(basePrice, 'base');
@@ -351,6 +351,7 @@ export class StripeService {
         throw error;
     }
 }
+
 private async getPriceAmount(priceId: string): Promise<number> {
   try {
       const price = await this.stripe.prices.retrieve(priceId);
@@ -397,7 +398,7 @@ private async getPriceAmount(priceId: string): Promise<number> {
           if (discountTier.secondYearDiscount > 0) {
               nextPrice = Math.round(basePrice * (1 - discountTier.secondYearDiscount / 100));
               discountPercent = discountTier.secondYearDiscount;
-              remainingDiscountMonths = 3;
+              remainingDiscountMonths = 12 ;
           } else if (discountTier.additionalDiscount) {
               nextPrice = Math.round(basePrice * (1 - discountTier.additionalDiscount.percent / 100));
               discountPercent = discountTier.additionalDiscount.percent;
@@ -407,6 +408,7 @@ private async getPriceAmount(priceId: string): Promise<number> {
               discountPercent = 0;
               remainingDiscountMonths = 0;
           }
+          
 
           this.logger.debug('Inserting subscription record with discount', {
               nextPrice,
@@ -755,10 +757,7 @@ private async handleSubscriptionUpdated(subscription: Stripe.Subscription): Prom
       const currentIterations = parseInt(subscription.metadata.current_iterations || '0');
       const currentPhase = phases[currentPhaseIndex];
 
-      // Only increment iteration if:
-      // 1. We have iterations defined
-      // 2. It's a new billing period
-      // 3. The subscription is no longer in trial
+ 
       if (currentPhase?.iterations && subscription.status === 'active') {
           const newIterations = currentIterations + 1;
           this.logger.debug('Incrementing iterations', {
@@ -781,7 +780,7 @@ private async handleSubscriptionUpdated(subscription: Stripe.Subscription): Prom
               }
           });
 
-          // Update remaining discount months only if we're in the active (post-trial) phase
+      
           if (subscriptionData?.remainingDiscountMonths > 0) {
               const newRemainingMonths = subscriptionData.remainingDiscountMonths - 1;
               

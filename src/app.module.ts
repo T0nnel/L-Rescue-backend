@@ -12,6 +12,7 @@ import { DiscountController } from './discount/discount.controller';
 import { DiscountModule } from './discount/discount.module';
 import { StripeModule } from './stripe/stripe.module';
 import { PaymentModule } from './payment/payment.module';
+import { CognitoModule } from './cognito/cognito.module';
 
 @Module({
   imports: [WaitlistModule, MailerModule, RecaptchaModule, AttorneyAuthModule,
@@ -20,7 +21,8 @@ import { PaymentModule } from './payment/payment.module';
     }),
     DiscountModule,
     StripeModule,
-    PaymentModule
+    PaymentModule,
+    CognitoModule
   ],
   providers: [DiscountService, SupabaseService],
   controllers: [DiscountController], 

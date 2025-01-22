@@ -2,9 +2,26 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import * as express from 'express'
+import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+
+  app.useGlobalPipes(new ValidationPipe({
+    whitelist:true,
+    transform:true,
+    forbidNonWhitelisted:true,
+    transformOptions: {
+      enableImplicitConversion: true,
+    },
+    validationError: {
+      target: false,
+      value: false,
+    },
+  }))
+
+  app.setGlobalPrefix('/api/v1')
 
   app.enableCors({
     origin: [
