@@ -22,14 +22,9 @@ export class SupabaseService {
     this.supabase = createClient(this.supabaseUrl, this.supabaseKey);
   }
 
-  async insertData(data: any, clientIp: string) {
+  async insertData(data: any) {
     console.log('Received data:', data);
-  
-    // Ensure that IP address is a valid string
-    if (!clientIp || typeof clientIp !== 'string') {
-      console.error('Invalid IP address provided:', clientIp);
-      throw new Error('Invalid IP address');
-    }
+
   
     if (!data) {
       console.error('Error: Missing data in request');
@@ -58,12 +53,12 @@ export class SupabaseService {
     // Step 1 - Inserting data if no email ID has been assigned yet
     try {
       if (!this.emailId && this.collectedData.email) {
-        console.log('Inserting email and IP address into Supabase...');
+        console.log('Inserting email into Supabase...');
   
-        // Insert email and IP address into the `waitlist` table
+        // Insert email into the `waitlist` table
         const { data: insertedEmail, error: emailError } = await this.supabase
           .from('waitlist')
-          .insert([{ email: this.collectedData.email, ip_address: clientIp }])
+          .insert([{ email: this.collectedData.email}])
           .select('id') // Retrieve the inserted id
           .single(); // Ensure only a single record is returned
   
@@ -104,16 +99,15 @@ export class SupabaseService {
           ? maxPositionData.waitlist_position + 1
           : 1;
   
-        // Update the record with additional information and the IP address
+        // Update the record with additional information 
         const { data: updatedData, error: updateError } = await this.supabase
           .from('waitlist')
           .update({
-            ...this.collectedData, // Collect all provided fields
+            ...this.collectedData, 
             email: undefined, // Don't update email again
             state: this.collectedData.state,
             licenses: this.collectedData.licenses,
             waitlist_position: nextPosition, // Incremented position in the waitlist
-            ip_address: clientIp // Assign the IP address for the update
           })
           .eq('id', this.emailId); // Ensure we update the correct record based on the ID
   

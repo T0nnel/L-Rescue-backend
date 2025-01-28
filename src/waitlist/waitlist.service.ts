@@ -26,7 +26,7 @@ export class WaitlistService {
       console.log('Extracted Client IP:', clientIp); // Debugging line to log IP
   
       // Pass the data and client IP to the Supabase service
-      return await this.supabaseService.insertData(data, clientIp);
+      return await this.supabaseService.insertData(data);
     } catch (error) {
       console.error('Error in WaitlistService:', error);
       throw new Error(`WaitlistService error: ${error.message}`);
