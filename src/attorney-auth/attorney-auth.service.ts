@@ -28,7 +28,7 @@ export class AttorneyAuthService {
     }
 
     async signUpAttorney(data: AttorneySignUpDTO) {
-        const { email, normalPrice, statesLicensing } = data;
+        const { email} = data;
 
       
         const existingAttorney = await this.findAttorneyByEmail(email);
@@ -37,31 +37,33 @@ export class AttorneyAuthService {
             throw new ConflictException('An attorney with this email already exists');
         }
 
-        try {
-           
-            const waitlistUsers = await this.checkWaitlistStatus(email);
-            
-           
+        try {         
             const newUser = await this.createAttorneyUser(data);
-            
-           
-            const subscriptionData = await this.createSubscription(
-                email,
-                newUser.id,
-                normalPrice,
-                statesLicensing,
-                waitlistUsers
-            );
-
-            return subscriptionData;
+            return newUser    
         } catch (error) {
             this.logger.error(`SignUp process failed: ${error.message}`, {
                 error,
                 email,
-                statesLicensing
+               
             });
             throw error;
         }
+    }
+
+    async registerAttorneySubscription(email: string, id: string, normalPrice: number, statesLicensing: { barLicenseNumber: string; }[]) {
+        const waitlistUsers = await this.checkWaitlistStatus(email);
+        const subscriptionData = await this.createSubscription(
+            email,
+            id,
+            normalPrice,
+            statesLicensing,
+            waitlistUsers
+        );
+
+        await this.supabaseClient.from(TABLES.ATTORNEY_USERS).update({'normalPrice': normalPrice}).eq('email', email);
+
+        return subscriptionData;
+
     }
 
     async signInAttorney(email: string) {
@@ -122,7 +124,7 @@ export class AttorneyAuthService {
             .from(TABLES.ATTORNEY_USERS)
             .select('email')
             .eq('email', email)
-            .single();
+            .maybeSingle();
 
         if (error) {
             this.logger.error(`Error checking attorney existence: ${error.message}`, { email });

@@ -144,7 +144,7 @@ export class AttorneySignUpDTO {
     @IsArray()
     @IsString({ each: true })
     @ArrayMinSize(1)
-    areasOfPractice: string[];
+    areasOfPractice?: string[];
 
     @IsBoolean()
     @IsNotEmpty()
@@ -157,16 +157,16 @@ export class AttorneySignUpDTO {
     @IsArray()
     @IsString({ each: true })
     @ArrayMinSize(1)
-    countiesSubscribed: string[];
+    countiesSubscribed?: string[];
 
     @IsObject()
     @IsOptional()
     zipCodesSubscribed?: Record<string, string[]>;
 
     @IsNumber()
-    @IsNotEmpty()
+    @IsOptional()
     @IsPositive()
-    normalPrice: number;
+    normalPrice?: number;
 
     @IsOptional()
     @IsNumber()

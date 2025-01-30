@@ -28,12 +28,14 @@ export class CognitoService {
       clientId: string;
       clientSecret: string;
       awsRegion: string;
+      accessKeyId: string;    
+      secretAccessKey: string;
     }
   ) {
-    const { userPoolId, clientId, clientSecret, awsRegion } = config;
+    const { userPoolId, clientId, accessKeyId, secretAccessKey, clientSecret, awsRegion } = config;
 
 
-    if (!clientId || !userPoolId || !awsRegion || !clientSecret) {
+    if (!clientId || !userPoolId || !awsRegion || !clientSecret || !accessKeyId || !secretAccessKey) {
       throw new Error(
         `Missing required environment variables:
         - COGNITO_CLIENT_ID: ${clientId || 'Not Set'}
@@ -43,8 +45,15 @@ export class CognitoService {
       );
     }
 
-    this.cognitoClient = new CognitoIdentityProviderClient({ region: awsRegion });
+    this.cognitoClient = new CognitoIdentityProviderClient({
+      region: awsRegion,
+      credentials: {
+        accessKeyId,
+        secretAccessKey
+      }
+    });
   }
+
 
   private computeSecretHash(username: string): string {
     const hmac = crypto.createHmac('sha256', this.config.clientSecret);
@@ -90,7 +99,7 @@ export class CognitoService {
         throw new ConflictException('An account with this email already exists. Please try logging in instead.');
       }
       
-      // Handle other potential Cognito errors
+      
       switch (error.__type) {
         case 'InvalidPasswordException':
           throw new BadRequestException('Password does not meet requirements.');
@@ -239,5 +248,6 @@ export class CognitoService {
       console.error('Failed to update user profile:', error);
       throw new Error(`Update failed: ${error.message || error}`);
     }
-  }
-}
+
+    
+  }}

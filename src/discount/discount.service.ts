@@ -62,7 +62,7 @@ export class DiscountService {
                 .from('waitlist')
                 .select('waitlist_position, licenses')
                 .eq('email', email)
-                .single();
+                .maybeSingle();
 
             if (waitlistError) {
                 this.logger.error('Error querying waitlist table', { 
