@@ -4,23 +4,9 @@ import { ConfigService } from '@nestjs/config';
 import * as jwt from 'jsonwebtoken';
 import * as fs from 'fs';
 import { promisify } from 'util';
+import { ApplePrivateKeyConfig, ProviderConfig } from 'src/types';
 
-// TypeScript interfaces for better type safety
-export interface ProviderConfig {
-  clientId: string;
-  clientSecret: string;
-  authEndpoint: string;
-  tokenEndpoint: string;
-  userInfoEndpoint: string | null;
-  scopes: string[];
-}
 
-export interface ApplePrivateKeyConfig {
-  teamId: string;
-  keyId: string;
-  privateKeyPath: string;
-  clientId: string;
-}
 
 @Injectable()
 export class IdpConfigService {

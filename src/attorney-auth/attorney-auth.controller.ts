@@ -49,19 +49,6 @@ export class AttorneyAuthController {
         }
     }
 
-    @Post('/idp-signin')
-    async idpSignIn(
-        @Body() body: {idpToken: string; provider: string}
-    ){
-        try{
-            const {idpToken, provider} = body
-            return await this.cognitoService.handleIdpSignIn(idpToken, provider)
-
-        }catch(error){
-            this.handleError(error)
-        }
-    }
-
       @Post('/create-checkout-session')
         async createCheckoutSession(@Body() body: { basePrice:number, attorneyId: string, customerEmail: string, statesLicensing: { barLicenseNumber: string; }[]} ) {
           const { basePrice, customerEmail, attorneyId, statesLicensing } = body;

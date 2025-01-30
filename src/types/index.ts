@@ -61,7 +61,7 @@ export interface AttorneySubscription {
     id: string;
     attorneyId: string;
     stripeSubscriptionId: string;
-    discountTier: number;
+    discountTier: DiscountTier;
     subscriptionStatus: 'trial' | 'discounted' | 'full';
     trialEndsAt: Date;
     discountEndsAt: Date | null;
@@ -72,6 +72,7 @@ export interface AttorneySubscription {
     nextPrice: number | null;
     originalBasePrice?: number;
   }
+
 export type DiscountTier = {
     maxPosition?: number; 
     trialMonths: number;
@@ -82,3 +83,18 @@ export type DiscountTier = {
     };
 };
 
+export interface ProviderConfig {
+  clientId: string;
+  clientSecret: string;
+  authEndpoint: string;
+  tokenEndpoint: string;
+  userInfoEndpoint: string | null;
+  scopes: string[];
+}
+
+export interface ApplePrivateKeyConfig {
+  teamId: string;
+  keyId: string;
+  privateKeyPath: string;
+  clientId: string;
+}
