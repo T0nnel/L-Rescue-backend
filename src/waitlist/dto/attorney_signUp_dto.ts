@@ -1,241 +1,246 @@
 /* eslint-disable prettier/prettier */
 import { Type } from 'class-transformer';
-import { 
-    IsArray, 
-    IsBoolean, 
-    IsEmail, 
-    IsEnum, 
-    IsNotEmpty, 
-    IsNumber, 
-    IsObject, 
-    IsOptional, 
-    IsPhoneNumber, 
-    IsPositive, 
-    IsString, 
-    ValidateNested,
-    MinLength,
-    MaxLength,
-    Matches,
-    ArrayMinSize
+import {
+  IsArray,
+  IsBoolean,
+  IsEmail,
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsObject,
+  IsOptional,
+  IsPhoneNumber,
+  IsPositive,
+  IsString,
+  ValidateNested,
+  MinLength,
+  MaxLength,
+  Matches,
+  ArrayMinSize,
 } from 'class-validator';
-import { awardsEntry, CaseEntry, educationEntry, membershipEntry } from '../../types';
+import {
+  awardsEntry,
+  CaseEntry,
+  educationEntry,
+  membershipEntry,
+} from '../../types';
 
 export enum AttorneyType {
-    SOLO = 'solo',
-    SMALL_FIRM = 'Firm-wide (≤20 attorneys)',
-    LARGE_FIRM = 'Firm-wide (>20 attorneys)'
+  SOLO = 'solo',
+  SMALL_FIRM = 'Firm-wide (≤20 attorneys)',
+  LARGE_FIRM = 'Firm-wide (>20 attorneys)',
 }
 
 class StateLicense {
-    @IsString()
-    @IsNotEmpty()
-    @MinLength(2)
-    @MaxLength(2)
-    state: string;
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(2)
+  @MaxLength(2)
+  state: string;
 
-    @IsString()
-    @IsNotEmpty()
-    barLicenseNumber: string;
+  @IsString()
+  @IsNotEmpty()
+  barLicenseNumber: string;
 }
 
 class Education implements educationEntry {
-    @IsString()
-    @IsNotEmpty()
-    institution_name: string;
+  @IsString()
+  @IsNotEmpty()
+  institution_name: string;
 
-    @IsString()
-    @IsNotEmpty()
-    degree_name: string;
+  @IsString()
+  @IsNotEmpty()
+  degree_name: string;
 
-    @IsNumber()
-    @IsPositive()
-    year_of_degree: number;
+  @IsNumber()
+  @IsPositive()
+  year_of_degree: number;
 }
 
 class Membership implements membershipEntry {
-    @IsString()
-    @IsNotEmpty()
-    name: string;
+  @IsString()
+  @IsNotEmpty()
+  name: string;
 
-    @IsString()
-    @IsOptional()
-    year_of_entry: number;
+  @IsString()
+  @IsOptional()
+  year_of_entry: number;
 
-    @IsNumber()
-    @IsPositive()
-    year_of_end: number;
+  @IsNumber()
+  @IsPositive()
+  year_of_end: number;
 }
 
 class Award implements awardsEntry {
-    @IsString()
-    @IsNotEmpty()
-    name_of_award: string;
+  @IsString()
+  @IsNotEmpty()
+  name_of_award: string;
 
-    @IsNumber()
-    @IsPositive()
-    year_of_award: number;
-
-   
+  @IsNumber()
+  @IsPositive()
+  year_of_award: number;
 }
 
 class Case implements CaseEntry {
-    @IsString()
-    @IsNotEmpty()
-    title: string;
+  @IsString()
+  @IsNotEmpty()
+  title: string;
 
-    @IsString()
-    @IsNotEmpty()
-    @MinLength(10)
-    description: string;
-
-   
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(10)
+  description: string;
 }
 
 export class AttorneySignUpDTO {
-    @IsNotEmpty()
-    @IsEnum(AttorneyType)
-    attorneyType: AttorneyType;
+  @IsNotEmpty()
+  @IsEnum(AttorneyType)
+  attorneyType: AttorneyType;
 
-    @IsNotEmpty()
-    @IsString()
-    @MinLength(2)
-    firstName: string;
+  @IsNotEmpty()
+  @IsString()
+  @MinLength(2)
+  firstName: string;
 
-    @IsNotEmpty()
-    @IsString()
-    @MinLength(2)
-    lastName: string;
+  @IsNotEmpty()
+  @IsString()
+  @MinLength(2)
+  lastName: string;
 
-    @IsNotEmpty()
-    @IsString()
-    @MinLength(2)
-    firmName: string;
+  @IsNotEmpty()
+  @IsString()
+  @MinLength(2)
+  firmName: string;
 
-    @IsNotEmpty()
-    @IsString()
-    @MinLength(5)
-    firmAddress: string;
+  @IsNotEmpty()
+  @IsString()
+  @MinLength(5)
+  firmAddress: string;
 
-    @IsNotEmpty()
-    @IsString()
-    @MinLength(2)
-    @MaxLength(2)
-    state: string;
+  @IsNotEmpty()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(2)
+  state: string;
 
-    @IsNotEmpty()
-    @IsString()
-    zipCode: string;
+  @IsNotEmpty()
+  @IsString()
+  zipCode: string;
 
-    @IsEmail()
-    @IsString()
-    @IsNotEmpty()
-    email: string;
+  @IsEmail()
+  @IsString()
+  @IsNotEmpty()
+  email: string;
 
-    @IsNotEmpty()
-    @IsPhoneNumber('US')
-    phoneNumber: string;
+  @IsNotEmpty()
+  @IsPhoneNumber('US')
+  phoneNumber: string;
 
-    @IsArray()
-    @ValidateNested({ each: true })
-    @Type(() => StateLicense)
-    @ArrayMinSize(1)
-    statesLicensing: StateLicense[];
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => StateLicense)
+  @ArrayMinSize(1)
+  statesLicensing: StateLicense[];
 
-    @IsArray()
-    @IsString({ each: true })
-    @ArrayMinSize(1)
-    areasOfPractice?: string[];
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMinSize(1)
+  areasOfPractice?: string[];
 
-    @IsBoolean()
-    @IsNotEmpty()
-    isAgreed: boolean;
+  @IsBoolean()
+  @IsNotEmpty()
+  isAgreed: boolean;
 
-    @IsNotEmpty()
-    @IsString()
-    cognitoId: string;
+  @IsBoolean()
+  @IsNotEmpty()
+  isActive: boolean = false;
 
-    @IsArray()
-    @IsString({ each: true })
-    @ArrayMinSize(1)
-    countiesSubscribed?: string[];
+  @IsNotEmpty()
+  @IsString()
+  cognitoId: string;
 
-    @IsObject()
-    @IsOptional()
-    zipCodesSubscribed?: Record<string, string[]>;
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMinSize(1)
+  countiesSubscribed?: string[];
 
-    @IsNumber()
-    @IsOptional()
-    @IsPositive()
-    normalPrice?: number;
+  @IsObject()
+  @IsOptional()
+  zipCodesSubscribed?: Record<string, string[]>;
 
-    @IsOptional()
-    @IsNumber()
-    waitlistPosition?: number;
+  @IsNumber()
+  @IsOptional()
+  @IsPositive()
+  normalPrice?: number;
 
-    @IsOptional()
-    @IsString()
-    subscription_status?: string;
+  @IsOptional()
+  @IsNumber()
+  waitlistPosition?: number;
 
-    @IsOptional()
-    @IsString()
-    @MinLength(10)
-    bio?: string;
+  @IsOptional()
+  @IsString()
+  subscription_status?: string;
 
-    @IsOptional()
-    @IsString()
-    @Matches(/^https?:\/\/.+/, {
-        message: 'Profile picture URL must be a valid URL'
-    })
-    profile_picture_url?: string;
+  @IsOptional()
+  @IsString()
+  @MinLength(10)
+  bio?: string;
 
-    @IsOptional()
-    @ValidateNested({ each: true })
-    @Type(() => Education)
-    education?: Education[];
+  @IsOptional()
+  @IsString()
+  @Matches(/^https?:\/\/.+/, {
+    message: 'Profile picture URL must be a valid URL',
+  })
+  profile_picture_url?: string;
 
-    @IsOptional()
-    @ValidateNested({ each: true })
-    @Type(() => Membership)
-    memberships?: Membership[];
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => Education)
+  education?: Education[];
 
-    @IsOptional()
-    @ValidateNested({ each: true })
-    @Type(() => Award)
-    awards?: Award[];
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => Membership)
+  memberships?: Membership[];
 
-    @IsOptional()
-    @IsArray()
-    @IsString({ each: true })
-    specializations?: string[];
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => Award)
+  awards?: Award[];
 
-    @IsOptional()
-    @ValidateNested({ each: true })
-    @Type(() => Case)
-    representative_cases?: Case[];
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  specializations?: string[];
 
-    @IsOptional()
-    @IsNumber()
-    @IsPositive()
-    hourly_rate?: number;
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => Case)
+  representative_cases?: Case[];
 
-    @IsOptional()
-    @IsBoolean()
-    pro_bono_available?: boolean;
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  hourly_rate?: number;
 
-    @IsOptional()
-    @IsString()
-    @MinLength(10)
-    why_joined_LR?: string;
+  @IsOptional()
+  @IsBoolean()
+  pro_bono_available?: boolean;
 
-    @IsOptional()
-    @IsBoolean()
-    newCaseNotifications?: boolean;
+  @IsOptional()
+  @IsString()
+  @MinLength(10)
+  why_joined_LR?: string;
 
-    @IsOptional()
-    @IsBoolean()
-    messageNotifications?: boolean;
+  @IsOptional()
+  @IsBoolean()
+  newCaseNotifications?: boolean;
 
-    @IsOptional()
-    @IsBoolean()
-    platformUpdateNotifications?: boolean;
+  @IsOptional()
+  @IsBoolean()
+  messageNotifications?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  platformUpdateNotifications?: boolean;
 }
