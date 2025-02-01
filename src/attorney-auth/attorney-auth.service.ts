@@ -12,9 +12,10 @@ import { SupabaseService } from 'src/supabase/supabase.service';
 import { AttorneySignUpDTO } from 'src/waitlist/dto/attorney_signUp_dto';
 import { UpdateAttorneyDto } from 'src/waitlist/dto/attorney_Update_dto copy';
 
-const TABLES = {
+export const TABLES = {
   WAITLIST: 'waitlist',
   ATTORNEY_USERS: 'attorneys',
+  ADMIN: 'admins',
 } as const;
 
 @Injectable()
