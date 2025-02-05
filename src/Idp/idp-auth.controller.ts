@@ -7,7 +7,9 @@ import {
   Req,
   Logger,
   UnauthorizedException,
-  InternalServerErrorException
+  InternalServerErrorException,
+  NotFoundException,
+  Query
 } from '@nestjs/common';
 import { Response, Request } from 'express';
 import { ConfigService } from '@nestjs/config';
@@ -16,13 +18,14 @@ import {
   AdminInitiateAuthCommand,
   AuthenticationResultType,
   AdminCreateUserCommand,
-  AdminLinkProviderForUserCommand
+  AdminLinkProviderForUserCommand,
+  AdminSetUserPasswordCommand,
+  AdminGetUserCommand
 } from '@aws-sdk/client-cognito-identity-provider';
 import * as crypto from 'crypto';
 import { IdpConfigService } from './idp-config.service';
 import * as jwt from 'jsonwebtoken';
 
-// Session type declaration for Express
 declare module 'express' {
   interface Request {
     session: {
@@ -30,11 +33,11 @@ declare module 'express' {
       codeVerifier?: string;
       provider?: string;
       nonce?: string;
+      authType: string
     };
   }
 }
 
-// Provider configuration interface
 interface ProviderConfig {
   clientId: string;
   clientSecret: string;
@@ -44,7 +47,6 @@ interface ProviderConfig {
   scopes: string[];
 }
 
-// Apple-specific interfaces
 interface AppleIdToken {
   email: string;
   email_verified: boolean;
@@ -59,7 +61,6 @@ interface AppleUser {
   };
 }
 
-// Generic token response interface
 interface TokenResponse {
   access_token: string;
   id_token: string;
@@ -69,7 +70,6 @@ interface TokenResponse {
   token_type?: string;
 }
 
-// User information interface
 interface UserInfo {
   email: string;
   sub: string;
@@ -79,7 +79,6 @@ interface UserInfo {
   family_name?: string;
 }
 
-// Error types
 class AuthenticationError extends Error {
   constructor(message: string) {
     super(message);
@@ -102,12 +101,6 @@ export class IdpAuthController {
         accessKeyId: this.configService.get<string>('AWS_ACCESS_KEY_ID'),
         secretAccessKey: this.configService.get<string>('AWS_SECRET_ACCESS_KEY'),
       },
-    });
-
-    this.logger.log('Auth controller initialized', {
-      region: this.configService.get<string>('REGION'),
-      hasAppUrl: !!this.configService.get<string>('APP_URL'),
-      hasFrontendUrl: !!this.configService.get<string>('FRONTEND_URL')
     });
   }
 
@@ -139,15 +132,15 @@ export class IdpAuthController {
     return hmac.digest('base64');
   }
 
-  @Get(':provider')
+@Get(':provider')
   async getAuthUrl(
     @Param('provider') provider: string,
+    @Query('authType') authType: 'login' | 'signup' = 'signup',
     @Req() req: Request,
   ) {
     try {
       const providerConfig = this.idpConfigService.getProviderConfig(provider);
 
-      // Generate security parameters
       const state = crypto.randomBytes(32).toString('hex');
       const codeVerifier = crypto.randomBytes(32).toString('base64url');
       const codeChallenge = crypto
@@ -156,7 +149,8 @@ export class IdpAuthController {
         .digest('base64url');
       const nonce = crypto.randomBytes(16).toString('hex');
 
-      // Store in session
+      // Store auth type in session
+      req.session.authType = authType;
       req.session.oauthState = state;
       req.session.codeVerifier = codeVerifier;
       req.session.provider = provider;
@@ -180,13 +174,12 @@ export class IdpAuthController {
         nonce,
       });
 
-      // Special handling for Apple
       if (provider.toLowerCase() === 'apple') {
         params.append('response_mode', 'form_post');
       }
 
       const authUrl = `${providerConfig.authEndpoint}?${params.toString()}`;
-      this.logger.debug(`Generated auth URL for ${provider}`);
+      this.logger.debug(`Generated auth URL for ${provider} (${authType})`);
 
       return { authUrl };
     } catch (error) {
@@ -196,20 +189,19 @@ export class IdpAuthController {
       );
     }
   }
-
   @Get(':provider/callback')
   async handleIdpCallback(
     @Param('provider') provider: string,
     @Req() req: Request,
     @Res() res: Response,
-  ): Promise<void> {
+  ): Promise<any> {
     try {
-      // Validate callback parameters
       const code = req.query.code as string;
       const state = req.query.state as string;
       const storedState = req.session.oauthState;
       const storedProvider = req.session.provider;
       const codeVerifier = req.session.codeVerifier;
+      const authType = req.session.authType || 'signup';
 
       if (!code || !state || state !== storedState || provider !== storedProvider) {
         throw new UnauthorizedException('Invalid callback parameters');
@@ -218,7 +210,6 @@ export class IdpAuthController {
       const providerConfig = this.idpConfigService.getProviderConfig(provider);
       const redirectUri = `${this.configService.get<string>('APP_URL')}/api/v1/auth/${provider}/callback`;
 
-      // Get tokens from IDP
       const tokens = await this.getIdpTokens(
         provider,
         code,
@@ -227,27 +218,57 @@ export class IdpAuthController {
         providerConfig
       );
 
-      // Get user info
       const userInfo = await this.getUserInfo(provider, tokens, providerConfig);
 
-      // Authenticate with Cognito
-      const cognitoTokens = await this.authenticateWithCognito(
+      if (authType === 'login') {
+        try {
+          // Check if user exists for login
+          await this.cognitoClient.send(new AdminGetUserCommand({
+            UserPoolId: this.configService.get('COGNITO_USER_POOL_ID'),
+            Username: userInfo.email
+          }));
+        } catch (error) {
+          if (error.name === 'UserNotFoundException') {
+            throw new NotFoundException('User not found. Please sign up first.');
+          }
+          throw error;
+        }
+      }
+
+      const { authResult, cognitoSub } = await this.authenticateWithCognito(
         provider,
         userInfo,
         tokens.id_token
       );
 
-      // Clean up session
       this.cleanupSession(req);
 
-      // Redirect with tokens
-      await this.redirectWithTokens(res, cognitoTokens, userInfo);
-
+      if (authType === 'login') {
+        // Return tokens directly for login
+        return {
+          accessToken: authResult.AccessToken,
+          refreshToken: authResult.RefreshToken,
+          idToken: authResult.IdToken,
+          email: userInfo.email,
+          provider
+        };
+      } else {
+        // Redirect with params for signup
+        await this.redirectWithTokens(res, provider, cognitoSub, userInfo);
+      }
     } catch (error) {
       this.logger.error(`Error in ${provider} callback:`, error);
-      await this.handleCallbackError(res, provider, error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      if (req.session.authType === 'login') {
+        throw new UnauthorizedException(error.message || 'Login failed');
+      } else {
+        await this.handleCallbackError(res, provider, error);
+      }
     }
   }
+
 
   private async getIdpTokens(
     provider: string,
@@ -358,9 +379,8 @@ export class IdpAuthController {
     provider: string,
     userInfo: UserInfo,
     idToken: string
-  ): Promise<AuthenticationResultType> {
+  ): Promise<{ authResult: AuthenticationResultType, cognitoSub: string }> {
     try {
-      // First, try to create or confirm the user exists
       try {
         await this.cognitoClient.send(
           new AdminCreateUserCommand({
@@ -368,29 +388,27 @@ export class IdpAuthController {
             Username: userInfo.email,
             MessageAction: 'SUPPRESS',
             UserAttributes: [
-              {
-                Name: 'email',
-                Value: userInfo.email,
-              },
-              {
-                Name: 'email_verified',
-                Value: 'true',
-              },
-              {
-                Name: 'name',
-                Value: userInfo.name,
-              },
+              { Name: 'email', Value: userInfo.email },
+              { Name: 'email_verified', Value: 'true' },
+              { Name: 'name', Value: userInfo.name },
             ],
           })
         );
+
+        await this.cognitoClient.send(
+          new AdminSetUserPasswordCommand({
+            UserPoolId: this.configService.get('COGNITO_USER_POOL_ID'),
+            Username: userInfo.email,
+            Password: 'Padrii2005!', 
+            Permanent: true, 
+          })
+        );
       } catch (error) {
-        // If user already exists, that's fine
         if (error.name !== 'UsernameExistsException') {
           throw error;
         }
       }
   
-      // Link the social identity if not already linked
       try {
         await this.cognitoClient.send(
           new AdminLinkProviderForUserCommand({
@@ -407,19 +425,21 @@ export class IdpAuthController {
           })
         );
       } catch (error) {
-        // If already linked, that's fine
-        if (error.name !== 'ResourceConflictException') {
+        if (error.name === 'InvalidParameterException' && 
+            error.message.includes('SourceUser is already linked')) {
+          this.logger.warn(`User ${userInfo.email} is already linked. Continuing authentication.`);
+        } else {
           throw error;
         }
       }
   
-      // Now get the tokens
       const command = new AdminInitiateAuthCommand({
         UserPoolId: this.configService.get('COGNITO_USER_POOL_ID'),
         ClientId: this.configService.get('COGNITO_CLIENT_ID'),
-        AuthFlow: 'ADMIN_NO_SRP_AUTH',
+        AuthFlow: 'ADMIN_USER_PASSWORD_AUTH',
         AuthParameters: {
           USERNAME: userInfo.email,
+          PASSWORD: "Padrii2005!",
           TOKEN: idToken,
           SECRET_HASH: this.computeSecretHash(userInfo.email),
         },
@@ -430,8 +450,30 @@ export class IdpAuthController {
       if (!response.AuthenticationResult) {
         throw new Error('No authentication result from Cognito');
       }
+
+      const getUserCommand = new AdminGetUserCommand({
+        UserPoolId: this.configService.get('COGNITO_USER_POOL_ID'),
+        Username: userInfo.email
+      });
+
+      const userResponse = await this.cognitoClient.send(getUserCommand);
+      const cognitoSubAttribute = userResponse.UserAttributes.find(
+        attr => attr.Name === 'sub'
+      );
   
-      return response.AuthenticationResult;
+      
+  
+      const cognitoSub = cognitoSubAttribute?.Value;
+  
+    
+      if (!cognitoSub) {
+        throw new Error('Could not retrieve Cognito sub');
+      }
+  
+      return {
+        authResult: response.AuthenticationResult,
+        cognitoSub
+      };
     } catch (error) {
       this.logger.error('Cognito authentication error:', error);
       throw new AuthenticationError(
@@ -446,11 +488,11 @@ export class IdpAuthController {
     delete req.session.provider;
     delete req.session.nonce;
   }
-
   private async redirectWithTokens(
     res: Response,
-    cognitoTokens: AuthenticationResultType,
-    userInfo: UserInfo
+    provider: string,
+    cognitoSub: string,
+    userInfo: UserInfo,
   ): Promise<void> {
     try {
       const frontendUrl = this.configService.get<string>('FRONTEND_URL');
@@ -460,11 +502,11 @@ export class IdpAuthController {
 
       const frontendCallback = `${frontendUrl}/auth/callback`;
       const params = new URLSearchParams({
-        access_token: cognitoTokens.AccessToken,
-        refresh_token: cognitoTokens.RefreshToken,
-        id_token: cognitoTokens.IdToken,
+        sub: cognitoSub ? cognitoSub.toString() : '',
         email: userInfo.email,
+        provider: provider
       });
+     
 
       res.redirect(`${frontendCallback}?${params.toString()}`);
     } catch (error) {

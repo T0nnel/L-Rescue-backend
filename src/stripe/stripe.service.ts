@@ -178,7 +178,7 @@ export class StripeService {
         subscription_data: {
           trial_period_days: trialPeriodDays,
         },
-        success_url: `${this.configService.get('FRONTEND_URL')}/success?session_id={CHECKOUT_SESSION_ID}`,
+        success_url: `${this.configService.get('FRONTEND_URL')}/attorney/approval?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${this.configService.get('FRONTEND_URL')}/pricing`,
         metadata,
       });
