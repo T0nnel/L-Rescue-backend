@@ -40,6 +40,13 @@ export class AttorneyAuthController {
     return this.cognitoService.confirmSignUp(email, confirmationCode);
   }
 
+  @Post('/resendCode')
+  async resendConfirmationCode(
+    @Body('email') email:string,
+  ){
+    return this.cognitoService.resendConfirmationCode(email)
+  }
+
   @Post('/login')
   async signin(@Body() loginUserDto: LoginUserDto) {
     return this.cognitoService.loginUser(

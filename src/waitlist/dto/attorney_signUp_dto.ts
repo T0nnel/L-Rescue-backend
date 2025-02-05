@@ -9,7 +9,6 @@ import {
   IsNumber,
   IsObject,
   IsOptional,
-  IsPhoneNumber,
   IsPositive,
   IsString,
   ValidateNested,
@@ -133,7 +132,7 @@ export class AttorneySignUpDTO {
   email: string;
 
   @IsNotEmpty()
-  @IsPhoneNumber('US')
+ 
   phoneNumber: string;
 
   @IsArray()
