@@ -1,6 +1,14 @@
 /* eslint-disable prettier/prettier */
-import { Controller, Post, Body, Get, HttpException, HttpStatus, Req } from '@nestjs/common';
-import { Request } from 'express';  // Import the Request type
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  HttpException,
+  HttpStatus,
+  Req,
+} from '@nestjs/common';
+import { Request } from 'express'; // Import the Request type
 import { WaitlistService } from './waitlist.service';
 
 @Controller('waitlist')
@@ -18,7 +26,7 @@ export class WaitlistController {
     try {
       // Pass both data and client IP (from req) to the service
       const result = await this.waitlistService.addToWaitlist(data, req);
-      
+
       if (!result) {
         return { message: 'Email saved. Awaiting additional data.' };
       }
@@ -28,7 +36,7 @@ export class WaitlistController {
       console.error('Error in WaitlistController:', error);
       throw new HttpException(
         `Failed to save data: ${error.message}`,
-        HttpStatus.INTERNAL_SERVER_ERROR
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
@@ -41,7 +49,7 @@ export class WaitlistController {
   async getWaitlistEmail() {
     try {
       const email = await this.waitlistService.getEmail();
-      return { email };  
+      return { email };
     } catch (error) {
       console.error('Error in WaitlistController while fetching email:', error);
       throw new Error(`Failed to get email: ${error.message}`);
@@ -54,7 +62,8 @@ export class WaitlistController {
    */
   @Get('count')
   async getWaitlistCount() {
+    console.log('Testing waitlist');
     const total = await this.waitlistService.getWaitlistCount();
     return { total };
-  } 
+  }
 }
