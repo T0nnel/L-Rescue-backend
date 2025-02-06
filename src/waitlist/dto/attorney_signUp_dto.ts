@@ -155,6 +155,9 @@ export class AttorneySignUpDTO {
   @IsNotEmpty()
   isActive: boolean = false;
 
+  @IsString()
+  accountStatus: string = 'Awaiting review';
+
   @IsNotEmpty()
   @IsString()
   cognitoId: string;
