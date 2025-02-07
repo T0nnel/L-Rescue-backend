@@ -16,6 +16,10 @@ export class SupabaseService {
 
   constructor() {
     if (!this.supabaseUrl || !this.supabaseKey) {
+      console.log(this.supabaseUrl);
+      console.log(this.supabaseKey);
+      
+      
       throw new Error('SUPABASE_URL or SUPABASE_ANON_KEY is missing');
     }
 

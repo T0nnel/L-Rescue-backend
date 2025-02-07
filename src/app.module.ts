@@ -4,11 +4,30 @@ import { Module } from '@nestjs/common';
 import { WaitlistModule } from './waitlist/waitlist.module'; 
 import { MailerModule } from './mailer/mailer.module';
 import { RecaptchaModule } from './recaptcha/recaptcha.module';
+import { DiscountService } from './discount/discount.service';
+import { AttorneyAuthModule } from './attorney-auth/attorney-auth.module';
+import { ConfigModule } from "@nestjs/config";
+import { SupabaseService } from './supabase/supabase.service';
+import { DiscountController } from './discount/discount.controller';
+import { DiscountModule } from './discount/discount.module';
+import { StripeModule } from './stripe/stripe.module';
+import { PaymentModule } from './payment/payment.module';
+import { CognitoModule } from './cognito/cognito.module';
+import { IdpAuthModule } from './Idp/idp-auth.module';
 import { CaseManagementController } from './case-management/case-management.controller';
 import { CaseManagementModule } from './case-management/case-management.module';
 
 @Module({
-  imports: [WaitlistModule, MailerModule, RecaptchaModule, CaseManagementModule],
-  controllers: [CaseManagementController], 
+  imports: [WaitlistModule, IdpAuthModule, MailerModule, DiscountModule, RecaptchaModule, AttorneyAuthModule,
+    ConfigModule.forRoot({
+      isGlobal: true
+    }),
+    DiscountModule,
+    StripeModule,
+    PaymentModule,
+    CognitoModule
+  ],
+  providers: [DiscountService, SupabaseService],
+  controllers: [DiscountController], 
 })
 export class AppModule {}
