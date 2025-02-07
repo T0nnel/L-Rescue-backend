@@ -20,6 +20,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.743.0",
     "@emailjs/nodejs": "^5.0.2",
     "@nestjs/common": "^10.4.13",
     "@nestjs/config": "^3.3.0",

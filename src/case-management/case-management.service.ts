@@ -386,20 +386,32 @@ import { CaseInterest } from './entities';
       return validTransitions[currentStatus]?.includes(newStatus) || false;
     }
   
+   
     private applyLocationFilters(query: any, attorneyData: any, filters: FilterOptions) {
+  
       const countiesSubscribed = attorneyData.countiesSubscribed.map(
-        (county: { name: string }) => county.name
+        (county: { name: string }) => this.normalizeCountyName(county.name)
       );
   
       if (filters?.zipCode && this.isLargePopulation(filters.county)) {
         return query.eq('zip_code', filters.zipCode);
       }
   
-      if (filters?.county && countiesSubscribed.includes(filters.county)) {
-        return query.eq('county', filters.county);
+      if (filters?.county) {
+        const normalizedFilterCounty = this.normalizeCountyName(filters.county);
+        if (countiesSubscribed.includes(normalizedFilterCounty)) {
+          return query.or(`county.ilike.${normalizedFilterCounty},county.ilike.${normalizedFilterCounty} County`);
+        }
       }
   
-      return query.in('county', countiesSubscribed);
+
+      const countyConditions = countiesSubscribed.reduce((acc: string[], county: string) => {
+        acc.push(county);
+        acc.push(`${county} County`);
+        return acc;
+      }, []);
+  
+      return query.in('county', countyConditions);
     }
   
     private applyTimeFrameFilter(query: any, timeFrame?: string) {
@@ -434,8 +446,33 @@ import { CaseInterest } from './entities';
       return query.gte('created_at', startDate.toISOString());
     }
   
+    private normalizeCountyName(county: string): string {
+
+      return county?.replace(/\s+county$/i, '').trim();
+    }
+  
     private isLargePopulation(county: string): boolean {
-    const largePopulationCounties = ['Los Angeles', 'Cook', 'Harris'];
-    return largePopulationCounties.includes(county);
+      const largePopulationCounties = new Set([
+        'Los Angeles',
+        'Cook',
+        'Harris',
+        'Maricopa',
+        'San Diego',
+        'Orange',
+        'Kings',
+        'King',
+        'Queens',
+        'Riverside',
+        'Clark',
+        'Miami-Dade',
+        'San Bernardino',
+        'Dallas',
+        'Bexar',
+        'Tarrant'
+      ]);
+      
+      // Normalize the input county name
+      const normalizedCounty = this.normalizeCountyName(county);
+      return largePopulationCounties.has(normalizedCounty);
+    }
   }
-}
