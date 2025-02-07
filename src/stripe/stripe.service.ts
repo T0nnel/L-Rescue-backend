@@ -203,28 +203,29 @@ export class StripeService {
     type: 'base' | 'discount'
   ): Promise<string> {
     try {
+      const amountInCents = Math.round(amount * 100);
       const lookup_key = `${type}_${amount}`;
       this.logger.debug(`Looking up price with key: ${lookup_key}`);
-
+  
       const prices = await this.stripe.prices.list({
         lookup_keys: [lookup_key],
         active: true,
       });
-
+  
       if (prices.data.length > 0) {
         this.logger.debug(`Found existing price: ${prices.data[0].id}`);
         return prices.data[0].id;
       }
-
+  
       this.logger.debug('Creating new price');
       const newPrice = await this.stripe.prices.create({
-        unit_amount: amount,
+        unit_amount: amountInCents,
         currency: 'usd',
         recurring: { interval: 'month' },
         product: this.configService.get('STRIPE_PRODUCT_ID'),
         lookup_key: lookup_key,
       });
-
+  
       this.logger.debug(`Created new price: ${newPrice.id}`);
       return newPrice.id;
     } catch (error) {
@@ -328,7 +329,7 @@ export class StripeService {
         const firstPhase = phases[0];
         await this.stripe.subscriptions.update(subscription.id, {
             items: [{
-                id: existingItemId, // Use existing subscription item ID
+                id: existingItemId, 
                 price: firstPhase.price,
             }],
             trial_end: firstPhase.trial ? 
@@ -843,6 +844,86 @@ private async updateSubscriptionStatus(subscription: Stripe.Subscription): Promi
         });
         throw error;
     }
+}
+
+async updateSubscriptionPrice(
+  subscriptionId: string,
+  newBasePrice: number,
+): Promise<void> {
+  try {
+    this.logger.debug('Starting subscription price update', {
+      subscriptionId,
+      newBasePrice,
+    });
+
+  
+    const subscription = await this.stripe.subscriptions.retrieve(subscriptionId);
+    
+    
+    const supabase = this.supabaseService.getClient();
+    const { data: currentSubscription } = await supabase
+      .from('attorney_subscriptions')
+      .select('*')
+      .eq('stripesubscriptionid', subscriptionId)
+      .single();
+
+    if (!currentSubscription) {
+      throw new Error('Subscription not found in database');
+    }
+
+    // Calculate the new current price based on existing discount
+    const currentDiscountPercent = currentSubscription.discountPercent;
+    const newCurrentPrice = Math.round(newBasePrice * (1 - currentDiscountPercent / 100));
+    
+    // Get or create the new price in Stripe
+    const newPriceId = await this.createOrGetPrice(newCurrentPrice, 'discount');
+
+    // Update the subscription in Stripe with new billing cycle
+    await this.stripe.subscriptions.update(subscriptionId, {
+      items: [{
+        id: subscription.items.data[0].id,
+        price: newPriceId,
+      }],
+      proration_behavior: 'none', // Don't prorate the old price
+      billing_cycle_anchor: 'now', // Start new billing cycle immediately
+      proration_date: Math.floor(Date.now() / 1000), // Use current timestamp as proration date
+    });
+
+    // Calculate the new period end based on current time
+    const newPeriodEnd = new Date();
+    newPeriodEnd.setMonth(newPeriodEnd.getMonth() + 1);
+
+    // Update the database record
+    const { error } = await supabase
+      .from('attorney_subscriptions')
+      .update({
+        basePrice: newBasePrice,
+        currentPrice: newCurrentPrice,
+        nextPrice: currentSubscription.remainingDiscountMonths > 0 ? newCurrentPrice : newBasePrice,
+        originalBasePrice: newBasePrice,
+        currentPeriodEnd: newPeriodEnd,
+        lastUpdated: new Date(),
+      })
+      .eq('stripesubscriptionid', subscriptionId);
+
+    if (error) {
+      throw error;
+    }
+
+    this.logger.debug('Successfully updated subscription price', {
+      subscriptionId,
+      oldBasePrice: currentSubscription.basePrice,
+      newBasePrice,
+      newCurrentPrice,
+      newPeriodEnd,
+    });
+  } catch (error) {
+    this.logger.error('Error updating subscription price:', {
+      error: error.message,
+      subscriptionId,
+    });
+    throw error;
+  }
 }
   private async handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
     try {

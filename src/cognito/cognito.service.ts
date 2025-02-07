@@ -81,7 +81,7 @@ export class CognitoService {
     return hmac.digest('base64');
   }
 
-  async registerUser(userDetails: {
+  async registerAttorneyUser(userDetails: {
     email: string;
     password: string;
     username: string;
@@ -136,7 +136,7 @@ export class CognitoService {
       }
     }
   }
-  async confirmSignUp(email: string, code: string): Promise<any> {
+  async confirmAttorneySignUp(email: string, code: string): Promise<any> {
     const secretHash = this.computeSecretHash(email);
 
     const command = new ConfirmSignUpCommand({
@@ -163,7 +163,7 @@ export class CognitoService {
             'Invalid verification code. Please try again.',
           );
         case 'ExpiredCodeException':
-          await this.resendConfirmationCode(email);
+          await this.resendAttorneyConfirmationCode(email);
           throw new BadRequestException({
             message:
               'Verification code has expired. A new code has been sent to your email.',
@@ -181,7 +181,7 @@ export class CognitoService {
     }
   }
 
-  async resendConfirmationCode(email: string): Promise<any> {
+  async resendAttorneyConfirmationCode(email: string): Promise<any> {
     const secretHash = this.computeSecretHash(email);
 
     const command = new ResendConfirmationCodeCommand({
@@ -216,7 +216,7 @@ export class CognitoService {
     }
   }
 
-  async loginUser(username: string, password: string): Promise<any> {
+  async loginAttorneyUser(username: string, password: string): Promise<any> {
     const secretHash = this.computeSecretHash(username);
 
     const command = new InitiateAuthCommand({
@@ -247,7 +247,7 @@ export class CognitoService {
             'No account found with this email. Please register first.',
           );
         case 'UserNotConfirmedException':
-          await this.resendConfirmationCode(username);
+          await this.resendAttorneyConfirmationCode(username);
           throw new UnauthorizedException({
             message:
               'Please verify your email before logging in. A new verification code has been sent.',
@@ -266,7 +266,7 @@ export class CognitoService {
     }
   }
 
-  async updateUser(
+  async updateAttorneyUser(
     accessToken: string,
     updatedUserAttributes: UpdateUserProfileDto,
   ): Promise<any> {

@@ -132,7 +132,6 @@ export class AttorneySignUpDTO {
   email: string;
 
   @IsNotEmpty()
- 
   phoneNumber: string;
 
   @IsArray()
@@ -159,9 +158,8 @@ export class AttorneySignUpDTO {
   cognitoId: string;
 
   @IsArray()
-  @IsString({ each: true })
-  @ArrayMinSize(1)
-  countiesSubscribed?: string[];
+  countiesSubscribed?: Array<{ name: string; state: string }>;
+  
 
   @IsObject()
   @IsOptional()

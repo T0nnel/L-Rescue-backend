@@ -30,26 +30,26 @@ export class AttorneyAuthController {
 
   @Post('/register')
   async register(@Body() registerUserDto: CreateAuthDto) {
-    return this.cognitoService.registerUser(registerUserDto);
+    return this.cognitoService.registerAttorneyUser(registerUserDto);
   }
   @Post('/confirmSignUp')
   async confirmSignUp(
     @Body('email') email: string,
     @Body('confirmationCode') confirmationCode: string,
   ) {
-    return this.cognitoService.confirmSignUp(email, confirmationCode);
+    return this.cognitoService.confirmAttorneySignUp(email, confirmationCode);
   }
 
   @Post('/resendCode')
   async resendConfirmationCode(
     @Body('email') email:string,
   ){
-    return this.cognitoService.resendConfirmationCode(email)
+    return this.cognitoService.resendAttorneyConfirmationCode(email)
   }
 
   @Post('/login')
   async signin(@Body() loginUserDto: LoginUserDto) {
-    return this.cognitoService.loginUser(
+    return this.cognitoService.loginAttorneyUser(
       loginUserDto.username,
       loginUserDto.password,
     );
