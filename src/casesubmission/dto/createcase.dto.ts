@@ -1,5 +1,25 @@
 /* eslint-disable prettier/prettier */
-import { IsArray, IsBoolean, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsBoolean, IsDate, IsEnum, IsOptional, IsString } from 'class-validator';
+
+export enum ConflictCheckStatus {
+  NOT_STARTED = 'Not Started',
+  PENDING_ATTORNEY_CERTIFICATION = 'Pending Attorney Certification',
+  PENDING_CLIENT_APPROVAL = 'Pending Client Approval',
+  COMPLETED = 'Completed',
+  REJECTED = 'Rejected'
+}
+
+
+
+export enum CaseStatus {
+  INTEREST_EXPRESSED = 'Interest Expressed',
+  AWAITING_CLIENT_CONFLICT_CHECK = 'Awaiting Client Enhanced Conflict Check Approval',
+  AWAITING_ATTORNEY_CONFLICT_CHECK = 'Awaiting Your Conflict Check Certification',
+  CONFLICT_CHECK_COMPLETED = 'Interest Expressed & Conflict Check Completed',
+  TERMS_SENT = 'Range of Terms or Contract sent',
+  RETAINED = 'Retained Client',
+  NO_LONGER_INTERESTED = 'No Longer Interested'
+}
 
 export class CreateCaseDto {
   @IsString()
@@ -72,6 +92,71 @@ export class CreateCaseDto {
   @IsOptional()
   @IsBoolean()
   termsAndConditionsAccepted?: boolean;
-  
+
+  // New fields for attorney case management
+  @IsOptional()
+  aiGeneratedSummary: {
+    title: string,
+    summary: string
+  };
+
+
+
+  @IsOptional()
+  @IsEnum(CaseStatus)
+  status?: CaseStatus;
+
+
+  @IsOptional()
+  @IsArray()
+  questionnaireResponses?: {
+    question: string;
+    answer: string;
+  }[];
+
+  @IsOptional()
+  @IsString()
+  clientCaseSummary?: string;
+
+
+
+  @IsOptional()
+  @IsBoolean()
+  conflictCheckCompleted?: boolean;
+
+  @IsEnum(ConflictCheckStatus)
+  @IsOptional()
+  conflictCheckStatus?: ConflictCheckStatus;
+
+  @IsDate()
+  @IsOptional()
+  attorneyConflictCheckDate?: Date;
+
+  @IsString()
+  @IsOptional()
+  attorneyConflictCheckCertification?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  clientConflictCheckApproval?: boolean;
+
+  @IsDate()
+  @IsOptional()
+  clientConflictCheckApprovalDate?: Date;
+
+  @IsString()
+  @IsOptional()
+  conflictCheckNotes?: string;
+
+ 
+  @IsDate()
+  @IsOptional()
+  interestExpressedDate?: Date;
+
+  @IsDate()
+  @IsOptional()
+  conflictCheckCompletedDate?: Date;
+
+
   id: any;
 }
