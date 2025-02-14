@@ -56,10 +56,15 @@ async function bootstrap() {
       'https://dev.d1wv5zmnajfzzh.amplifyapp.com',
     ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    allowedHeaders: 'Content-Type, Authorization',
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'x-refresh-token',  
+    ],
+    exposedHeaders: ['new-id-token'], 
     credentials: true,
   });
-  console.log('Listening on port 3001');
+
 
   await app.listen(3001);
 }

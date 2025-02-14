@@ -149,7 +149,7 @@ export class SupabaseService {
       const { data, error } = await this.supabase
         .from('waitlist')
         .select('email')
-        .order('id', { ascending: false }) // Sort by id in descending order 
+        .order('id', { ascending: false }) 
         .limit(1)
         .single();
 

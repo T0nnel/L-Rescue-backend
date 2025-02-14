@@ -151,15 +151,16 @@ export class IdpAuthController {
         throw new UnauthorizedException('Missing required parameters');
       }
 
-      // Get tokens - the Lambda trigger will handle any user linking
+     
       const tokens = await this.getTokens(code, redirect_uri, codeVerifier);
       const userInfo = await this.getUserInfo(tokens.access_token);
-
       return {
         ...tokens,
         email: userInfo.email,
         cognitoSub: userInfo.sub
       };
+    
+      
     } catch (error) {
       this.logger.error('Error in token exchange:', error);
       throw new UnauthorizedException(error.message || 'Token exchange failed');
@@ -223,11 +224,6 @@ export class IdpAuthController {
     }
   }
 
-  private cleanupSession(req: Request): void {
-    delete req.session.oauthState;
-    delete req.session.codeVerifier;
-    delete req.session.provider;
-    delete req.session.nonce;
-  }
+  
 }
   

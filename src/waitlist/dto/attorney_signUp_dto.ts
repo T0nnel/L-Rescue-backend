@@ -25,7 +25,7 @@ import {
 } from '../../types';
 
 export enum AttorneyType {
-  SOLO = 'solo',
+  SOLO = 'solo account',
   SMALL_FIRM = 'Firm-wide (≤20 attorneys)',
   LARGE_FIRM = 'Firm-wide (>20 attorneys)',
 }

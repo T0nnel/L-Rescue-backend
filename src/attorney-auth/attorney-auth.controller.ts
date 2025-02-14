@@ -12,6 +12,8 @@ import {
   Get,
   Query,
   Param,
+  UseGuards,
+  Request,
 } from '@nestjs/common';
 import { AttorneyAuthService } from './attorney-auth.service';
 import { AttorneySignUpDTO } from 'src/waitlist/dto/attorney_signUp_dto';
@@ -20,6 +22,7 @@ import { ValidationConfig } from 'src/config';
 import { CreateAuthDto } from 'src/cognito/dto/create-auth.dto';
 import { LoginUserDto } from 'src/cognito/dto/login_user.dto';
 import { CognitoService } from 'src/cognito/cognito.service';
+import { JwtAuthGuard } from 'src/Guards/auth.guard';
 
 @Controller('auth')
 export class AttorneyAuthController {
@@ -89,33 +92,43 @@ export class AttorneyAuthController {
     return { url: session.url };
   }
 
-  @Post('/attorney/signin')
+
+ 
+  @Post('/attorney/getAttorneyData')
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @UsePipes(ValidationConfig)
-  async signInAttorney(@Body() body: { email: string }) {
+  async getData(@Request() req:any) {
     try {
-      const { email } = body;
-      const attorneyUser = await this.attorneyService.signInAttorney(email);
+      const email = req.user.email;
+      const attorneyUser = await this.attorneyService.getAttorneyData(email);
       if (!attorneyUser) {
         throw new HttpException(
           `User with email ${email} was not found`,
           HttpStatus.NOT_FOUND,
         );
       }
-      return attorneyUser;
+
+      return {
+        data: attorneyUser,
+        newAccessToken: req.newAccessToken || null
+      };
     } catch (error) {
       this.handleError(error);
     }
   }
 
   @Patch('/attorney/update')
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @UsePipes(ValidationConfig)
   async updateAttorney(
-    @Body() body: { email: string; data: UpdateAttorneyDto },
+    @Request() req,
+    @Body() body: { data: UpdateAttorneyDto },
   ) {
     try {
-      const { email, data } = body;
+      const email = req.user.email;
+      const { data } = body;
       const updatedUser = await this.attorneyService.updateAttorneyDetails(
         email,
         data,
@@ -126,24 +139,34 @@ export class AttorneyAuthController {
           HttpStatus.NOT_FOUND,
         );
       }
-      return updatedUser;
+
+      return {
+        data: updatedUser,
+        newAccessToken: req.newAccessToken || null
+      };
     } catch (error) {
       this.handleError(error);
     }
   }
 
   @Delete('/attorney/delete')
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @UsePipes(ValidationConfig)
-  async deleteAttorney(@Body() body: { email: string }) {
+  async deleteAttorney(@Request() req) {
     try {
-      const { email } = body;
+      const email = req.user.email;
       const response = await this.attorneyService.deleteAttorney(email);
-      return response;
+
+      return {
+        data: response,
+        newAccessToken: req.newAccessToken || null
+      };
     } catch (error) {
       this.handleError(error);
     }
   }
+
 
   @Get('/attorney/getAll')
   @HttpCode(HttpStatus.OK)

@@ -85,18 +85,32 @@ export class AttorneyAuthService {
     return subscriptionData;
   }
 
-  async signInAttorney(email: string) {
+
+  async getAttorneyData(email: string) {
     try {
+ 
       const attorney = await this.findAttorneyByEmail(email);
 
       if (!attorney) {
-        this.logger.warn('Attorney not found during signin', { email });
         throw new NotFoundException('Attorney user not found');
       }
 
-      return attorney;
+      const { data: subscription, error: subscriptionError } = await this.supabaseClient
+        .from('attorney_subscriptions')
+        .select('*')
+        .eq('attorneyId', attorney.id)
+        .single();
+
+      if (subscriptionError && subscriptionError.code !== 'PGRST116') { 
+        throw subscriptionError;
+      }
+
+     
+      return {
+        ...attorney,
+        subscription: subscription || null
+      };
     } catch (error) {
-      this.logger.error(`SignIn process failed: ${error.message}`, { email });
       throw error;
     }
   }
@@ -141,7 +155,7 @@ export class AttorneyAuthService {
   async findAttorneyByEmail(email: string) {
     const { data, error } = await this.supabaseClient
       .from(TABLES.ATTORNEY_USERS)
-      .select('email')
+      .select('*')
       .eq('email', email)
       .maybeSingle();
 
