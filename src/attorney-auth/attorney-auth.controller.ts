@@ -14,6 +14,8 @@ import {
   Param,
   UseGuards,
   Request,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import { AttorneyAuthService } from './attorney-auth.service';
 import { AttorneySignUpDTO } from 'src/waitlist/dto/attorney_signUp_dto';
@@ -23,6 +25,7 @@ import { CreateAuthDto } from 'src/cognito/dto/create-auth.dto';
 import { LoginUserDto } from 'src/cognito/dto/login_user.dto';
 import { CognitoService } from 'src/cognito/cognito.service';
 import { JwtAuthGuard } from 'src/Guards/auth.guard';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('auth')
 export class AttorneyAuthController {
@@ -123,7 +126,7 @@ export class AttorneyAuthController {
   @HttpCode(HttpStatus.OK)
   @UsePipes(ValidationConfig)
   async updateAttorney(
-    @Request() req,
+    @Request() req:any,
     @Body() body: { data: UpdateAttorneyDto },
   ) {
     try {
@@ -149,6 +152,20 @@ export class AttorneyAuthController {
     }
   }
 
+
+  @Post("/attorney/upload-picture")
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor("file"))
+  async uploadFile(
+    @UploadedFile() file: Express.Multer.File,
+    @Request()  req:any,
+    @Body("attorneyId") attorneyId: string,
+  ) {
+    const email = req.user.email;
+    return  this.attorneyService.uploadImage(file, attorneyId, email);
+  }
+
+
   @Delete('/attorney/delete')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
@@ -165,6 +182,24 @@ export class AttorneyAuthController {
     } catch (error) {
       this.handleError(error);
     }
+  }
+
+  @Post('forgot-password/initiate')
+  @HttpCode(HttpStatus.OK)
+  async initiatePasswordReset(@Body() { email }: { email: string }) {
+    return await this.cognitoService.initiateAttorneyForgotPassword(email);
+  }
+
+  @Post('forgot-password/confirm')
+  @HttpCode(HttpStatus.OK)
+  async confirmPasswordReset(
+    @Body() { email, code, newPassword }: { email: string; code: string; newPassword: string },
+  ) {
+    return await this.cognitoService.confirmAttorneyForgotPassword(
+      email,
+      code,
+      newPassword,
+    );
   }
 
 

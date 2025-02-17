@@ -35,7 +35,7 @@ export class IdpConfigService {
         authEndpoint: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
         tokenEndpoint: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
         userInfoEndpoint: 'https://graph.microsoft.com/oidc/userinfo',
-        scopes: ['openid', 'email', 'profile', 'User.Read']
+        scopes: ['openid', 'email', 'profile']
       },
       apple: {
         clientId: this.configService.get<string>('APPLE_CLIENT_ID'),

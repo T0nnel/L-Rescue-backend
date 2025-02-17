@@ -1,4 +1,5 @@
 /* eslint-disable prettier/prettier */
+import {  PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import {
   Injectable,
   Logger,
@@ -6,11 +7,13 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
+
 import { DiscountService } from 'src/discount/discount.service';
 import { StripeService } from 'src/stripe/Stripe.service';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import { AttorneySignUpDTO } from 'src/waitlist/dto/attorney_signUp_dto';
 import { UpdateAttorneyDto } from 'src/waitlist/dto/attorney_Update_dto copy';
+import { Express } from 'express';
 
 const TABLES = {
   WAITLIST: 'waitlist',
@@ -21,14 +24,26 @@ const TABLES = {
 export class AttorneyAuthService {
   private readonly logger = new Logger(AttorneyAuthService.name);
   private readonly supabaseClient: SupabaseClient;
+  private s3: S3Client;
+  private bucketName = process.env.S3_BUCKET_NAME;
+
 
   constructor(
     private readonly supabaseService: SupabaseService,
     private readonly discountService: DiscountService,
     private readonly stripeService: StripeService,
+
   ) {
     this.supabaseClient = supabaseService.getClient();
-  }
+   
+      this.s3 = new S3Client({
+        region: process.env.REGION,
+        credentials: {
+          accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        },
+      });
+    }
 
   private parseJsonField(field: string): any {
     try {
@@ -77,14 +92,11 @@ export class AttorneyAuthService {
       waitlistUsers,
     );
 
-    await this.supabaseClient
-      .from(TABLES.ATTORNEY_USERS)
-      .update({ normalPrice: normalPrice })
-      .eq('email', email);
 
     return subscriptionData;
   }
 
+ 
 
   async getAttorneyData(email: string) {
     try {
@@ -120,7 +132,6 @@ export class AttorneyAuthService {
       // Verify attorney exists
       const attorney = await this.findAttorneyByEmail(email);
       if (!attorney) {
-        this.logger.warn('Attorney not found during update', { email });
         throw new NotFoundException('Attorney user not found');
       }
 
@@ -136,11 +147,37 @@ export class AttorneyAuthService {
     }
   }
 
+  async uploadImage(file: Express.Multer.File, attorneyId: string, email: string) {
+    const attorney = await this.findAttorneyByEmail(email)
+    if(!attorney){
+      throw new NotFoundException('Attorney with the email was not found')
+    }
+    const fileName = `profile-images/${attorneyId}.jpg`; 
+    const params = {
+      Bucket: this.bucketName,
+      Key: fileName,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+      
+    };
+  
+    await this.s3.send(new PutObjectCommand(params));
+    const url = `https://${this.bucketName}.s3.amazonaws.com/${fileName}`
+    const data = {profile_picture_url: url }
+
+    await this.updateAttorneyDetails(email, data)
+  
+    return {
+      imageUrl: url,
+      fileName,
+    };
+  }
+  
+
   async deleteAttorney(email: string): Promise<string> {
     try {
       const attorney = await this.findAttorneyByEmail(email);
       if (!attorney) {
-        this.logger.warn('Attorney not found during deletion', { email });
         throw new NotFoundException('Attorney user not found');
       }
 
@@ -160,27 +197,7 @@ export class AttorneyAuthService {
       .maybeSingle();
 
     if (error) {
-      this.logger.error(`Error checking attorney existence: ${error.message}`, {
-        email,
-      });
       throw new Error(`Failed to check attorney existence: ${error.message}`);
-    }
-
-    return data;
-  }
-
-  private async checkWaitlistStatus(email: string) {
-    const { data, error } = await this.supabaseClient
-      .from(TABLES.WAITLIST)
-      .select('*')
-      .eq('email', email);
-
-    if (error) {
-      this.logger.error(
-        `Error retrieving user from waitlist: ${error.message}`,
-        { email },
-      );
-      throw new Error(`Failed to check waitlist status: ${error.message}`);
     }
 
     return data;
@@ -218,6 +235,23 @@ export class AttorneyAuthService {
     }
 
     return updatedUser;
+  }
+
+  private async checkWaitlistStatus(email: string) {
+    const { data, error } = await this.supabaseClient
+      .from(TABLES.WAITLIST)
+      .select('*')
+      .eq('email', email);
+
+    if (error) {
+      this.logger.error(
+        `Error retrieving user from waitlist: ${error.message}`,
+        { email },
+      );
+      throw new Error(`Failed to check waitlist status: ${error.message}`);
+    }
+
+    return data;
   }
 
   private async deleteAttorneyUser(email: string) {

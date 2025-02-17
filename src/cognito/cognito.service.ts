@@ -16,6 +16,8 @@ import {
   UpdateUserAttributesCommand,
   ConfirmSignUpCommand,
   ResendConfirmationCodeCommand,
+  ConfirmForgotPasswordCommand,
+  ForgotPasswordCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
 import * as crypto from 'crypto';
 
@@ -266,6 +268,8 @@ export class CognitoService {
     }
   }
 
+
+
   async updateAttorneyUser(
     accessToken: string,
     updatedUserAttributes: UpdateUserProfileDto,
@@ -289,4 +293,92 @@ export class CognitoService {
       throw new Error(`Update failed: ${error.message || error}`);
     }
   }
+
+  async initiateAttorneyForgotPassword(email: string): Promise<any> {
+    const secretHash = this.computeSecretHash(email);
+
+    const command = new ForgotPasswordCommand({
+      ClientId: this.config.clientId,
+      Username: email,
+      SecretHash: secretHash,
+    });
+
+    try {
+      const response = await this.cognitoClient.send(command);
+      return {
+        success: true,
+        message: 'Password reset code has been sent to your email.',
+        response: response,
+      };
+    } catch (error) {
+      console.error('Error initiating password reset:', error);
+
+      switch (error.__type) {
+        case 'UserNotFoundException':
+          throw new NotFoundException('No account found with this email.');
+        case 'InvalidParameterException':
+          throw new BadRequestException('Invalid email address.');
+        case 'LimitExceededException':
+          throw new BadRequestException('Too many attempts. Please try again later.');
+        case 'NotAuthorizedException':
+          throw new UnauthorizedException('Password reset not allowed for this user.');
+        default:
+          throw new InternalServerErrorException(
+            'Could not initiate password reset. Please try again later.',
+          );
+      }
+    }
+  }
+
+  async confirmAttorneyForgotPassword(
+    email: string,
+    code: string,
+    newPassword: string,
+  ): Promise<any> {
+    const secretHash = this.computeSecretHash(email);
+
+    const command = new ConfirmForgotPasswordCommand({
+      ClientId: this.config.clientId,
+      Username: email,
+      ConfirmationCode: code,
+      Password: newPassword,
+      SecretHash: secretHash,
+    });
+
+    try {
+      const response = await this.cognitoClient.send(command);
+      return {
+        success: true,
+        message: 'Password has been reset successfully.',
+        response: response,
+      };
+    } catch (error) {
+      console.error('Error confirming password reset:', error);
+
+      switch (error.__type) {
+        case 'CodeMismatchException':
+          throw new BadRequestException(
+            'Invalid verification code. Please try again.',
+          );
+        case 'ExpiredCodeException':
+          throw new BadRequestException(
+            'Verification code has expired. Please request a new code.',
+          );
+        case 'UserNotFoundException':
+          throw new NotFoundException('No account found with this email.');
+        case 'InvalidPasswordException':
+          throw new BadRequestException(
+            'Password does not meet the requirements. Password must contain at least 8 characters, including uppercase and lowercase letters, numbers, and special characters.',
+          );
+        case 'LimitExceededException':
+          throw new BadRequestException('Too many attempts. Please try again later.');
+        default:
+          throw new InternalServerErrorException(
+            'Could not reset password. Please try again later.',
+          );
+      }
+    }
+  }
+
+  
 }

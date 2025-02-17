@@ -13,7 +13,7 @@ import { DiscountModule } from './discount/discount.module';
 import { StripeModule } from './stripe/stripe.module';
 import { PaymentModule } from './payment/payment.module';
 import { CognitoModule } from './cognito/cognito.module';
-import { IdpAuthModule } from './Idp/idp-auth.module';
+import { IdpAuthModule } from './AttorneyIdp/idp-auth.module';
 
 @Module({
   imports: [WaitlistModule, IdpAuthModule, MailerModule, DiscountModule, RecaptchaModule, AttorneyAuthModule,
