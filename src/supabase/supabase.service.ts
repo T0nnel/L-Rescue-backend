@@ -8,7 +8,7 @@ dotenv.config();
 
 @Injectable()
 export class SupabaseService {
-  private supabaseUrl: string = process.env.SUPABASE_URL;
+  private supabaseUrl: string = process.env.SUPABASE_URL; 
   private supabaseKey: string = process.env.SUPABASE_KEY;
   private supabase: any;
   private collectedData: any = {}; 
@@ -73,7 +73,7 @@ export class SupabaseService {
         }
   
         this.emailId = insertedEmail.id;
-        console.log('Email and IP address inserted successfully with ID:', this.emailId);
+        console.log('Email inserted successfully with ID:', this.emailId);
   
         return null; // Await more data before continuing
   
