@@ -13,7 +13,7 @@ export class MailerService {
   constructor(private configService: ConfigService) {
     this.resendClient = new Resend(this.configService.get('RESEND_API_KEY'));
     this.transporter = nodemailer.createTransport({
-      host: this.configService.get('MAIL_HOST'),
+      host: this.configService.get('MAILTRAP_HOST'),
       port: 587,
       secure: false,
       auth: {
