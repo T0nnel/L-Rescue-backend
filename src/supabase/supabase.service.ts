@@ -254,7 +254,7 @@ export class SupabaseService {
             type: "SYSTEM"
           },
           {
-            name: "address.address",
+            name: "address.zip",
             value: userData.firmAddress || '',
             field_type: "TEXT",
             is_searchable: false,
