@@ -17,21 +17,41 @@ export class WaitlistController {
    * @param req - The request object for extracting the client's IP.
    * @returns A message indicating the result.
    */
+
+  @Post('create')
+  async createWaitlistUser(@Body() data: any, @Req() req: Request) {
+    try {  
+      const email = data.email;
+      const clientIp = this.getIpAddress(req);
+      
+
+      // Save to Supabase
+      const result = await this.supabaseService.createUser(email);
+      await this.supabaseService.updateUserInfo(email, {clientIp});
+      return { message: 'Data saved successfully.', data: result };
+  }catch(error) {
+      console.error('Error in WaitlistController:', error);
+      throw new HttpException(
+        `Failed to save data: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+} }
+
   @Post('save')
   async addToWaitlist(@Body() data: any, @Req() req: Request) {
+    console.log(data)
     try {
       // Get the client IP address
       const clientIp = this.getIpAddress(req);
 
       // Append client IP to data
       const enrichedData = { ...data, clientIp };
+      const email = data.email;
 
       // Save to Supabase
-      await this.supabaseService.insertData(enrichedData);  // Now it will work
+      const result = await this.supabaseService.updateUserInfo(email, enrichedData);  
 
-      // Pass data to waitlist service (if needed)
-      const result = await this.waitlistService.addToWaitlist(enrichedData, req);
-
+     
       return { message: 'Data saved successfully.', data: result };
     } catch (error) {
       console.error('Error in WaitlistController:', error);

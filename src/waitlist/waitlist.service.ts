@@ -13,7 +13,7 @@ export class WaitlistService {
    * @param data - The data to be added to the waitlist.
    * @param req - The request object to extract the client's IP address.
    */
-  async addToWaitlist(data: any, req: Request) {
+  async addToWaitlist(data: any, req: Request, email:string) {
     try {
       // Extract the client's IP address and ensure it is a string
       let clientIp = req.ip || req.headers['x-forwarded-for'] || '127.0.0.1';
@@ -26,7 +26,7 @@ export class WaitlistService {
       console.log('Extracted Client IP:', clientIp); // Debugging line to log IP
   
       // Pass the data and client IP to the Supabase service
-      return await this.supabaseService.insertData(data);
+      return await this.supabaseService.updateUserInfo(email, data);
     } catch (error) {
       console.error('Error in WaitlistService:', error);
       throw new Error(`WaitlistService error: ${error.message}`);
