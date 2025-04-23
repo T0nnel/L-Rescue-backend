@@ -25,7 +25,7 @@ export class MailerController {
 
     try {
       this.logger.log(`Attempting to send waitlist email to: ${to}`);
-      const response = await this.mailerService.sendEmail(to);
+      const response = await this.mailerService.sendWaitlistFollowUp(to);
       this.logger.log(`Waitlist email sent successfully to: ${to}`);
       return {
         success: true,
