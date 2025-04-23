@@ -14,8 +14,6 @@ export class SupabaseService {
   private supabaseUrl: string = process.env.SUPABASE_URL;
   private supabaseKey: string = process.env.SUPABASE_KEY;
   private supabase: any;
-  private collectedData: any = {}; 
-  private emailId: string | null = null; 
 
   constructor() {
     if (!this.supabaseUrl || !this.supabaseKey) {
@@ -24,194 +22,240 @@ export class SupabaseService {
 
     this.supabase = createClient(this.supabaseUrl, this.supabaseKey);
   }
-  async insertData(data: any) {
-    console.log('Received data:', data);
+
+  /**
+   * Create a user with email only
+   * @param email User's email
+   * @returns User data or existing user information
+   */
+  async createUser(email: string) {
+    if (!email) {
+      console.error('Error: Missing email in request');
+      throw new Error('No email provided');
+    }
+
+    console.log('Checking if email already exists in waitlist...');
+    
+    // Check if email already exists
+    const { data: existingUser, error: checkError } = await this.supabase
+      .from('waitlist')
+      .select('id, waitlistPosition, email')
+      .eq('email', email)
+      .single();
+      
+    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "not found" error
+      console.error('Error checking existing email:', checkError);
+      throw new Error(`Failed to check existing email: ${checkError.message}`);
+    }
+    
+    // If user exists, return their data
+    if (existingUser) {
+      console.log('Email already exists in waitlist with ID:', existingUser.id);
+      
+      return { 
+        existing: true, 
+        message: 'This email is already on our waitlist',
+        waitlistPosition: existingUser.waitlistPosition || null,
+        id: existingUser.id,
+        email: existingUser.email
+      };
+    }
+    
+    // If email doesn't exist, proceed with insertion
+    console.log('Inserting new email into Supabase...');
+    
+    const { data: insertedEmail, error: emailError } = await this.supabase
+      .from('waitlist')
+      .insert([{ email }])
+      .select('id, email') 
+      .single(); 
+
+    if (emailError) {
+      console.error('Error inserting email into Supabase:', emailError);
+      throw new Error(`Failed to insert email: ${emailError.message}`);
+    }
+
+    if (!insertedEmail || !insertedEmail.id) {
+      console.error('Failed to retrieve inserted email ID');
+      throw new Error('Email insertion failed');
+    }
+
+    // Sync to EngageBay
+    try {
+      const data = {
+        properties: [{
+          name: "email",
+          value: insertedEmail.email || '',
+          field_type: "TEXT",
+          is_searchable: false,
+          type: "SYSTEM"
+        }]
+      };
+      
+      const response = await axios.post(
+        'https://app.engagebay.com/dev/api/panel/subscribers/subscriber',
+        data,
+        {
+          headers: {
+            'Authorization': process.env.ENGAGEBAY_API_KEY,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      if (response.status !== 200) {
+        console.error('Error syncing to EngageBay:', response.data);
+      } else {
+        const data= response.data
+        await this.updateUserInfo(email, { contactId: data.id });
+        
+      }
+    } catch (engageBayError) {
+      console.error('Failed to sync with EngageBay:', engageBayError);
+    }
+
+    console.log('Email inserted successfully with ID:', insertedEmail.id);
+
+    return { 
+      existing: false, 
+      message: 'Email added successfully',
+      id: insertedEmail.id,
+      email: insertedEmail.email
+    };
+  }
+
+  /**
+   * Update user information
+   * @param email User's email
+   * @param data Data to update
+   * @returns Updated user data
+   */
+  async updateUserInfo(email: string, data: any) {
+    if (!email) {
+      console.error('Error: Missing email in request');
+      throw new Error('No email provided');
+    }
 
     if (!data) {
       console.error('Error: Missing data in request');
       throw new Error('No data provided');
     }
 
-    this.collectedData = { ...this.collectedData, ...data };
+    console.log('Looking up user by email:', email);
+    
+    // Find user by email
+    const { data: user, error: userError } = await this.supabase
+      .from('waitlist')
+      .select('id, waitlistPosition, email, contactId')
+      .eq('email', email)
+      .single();
+      
+    if (userError) {
+      console.error('Error finding user by email:', userError);
+      throw new Error(`Failed to find user: ${userError.message}`);
+    }
+    
+    if (!user) {
+      console.error('User not found with email:', email);
+      throw new Error('User not found');
+    }
 
-    if (this.collectedData.licenses) {
-      let states = Object.keys(this.collectedData.licenses);
+    const userId = user.id;
+    console.log('Found user with ID:', userId);
+
+    // Process data before update
+    const processedData = { ...data };
+    
+    // Process licenses if present
+    if (processedData.licenses) {
+      let states = Object.keys(processedData.licenses);
 
       if (states.length > 0) {
-        this.collectedData.state = states.join(', '); 
+        processedData.state = states.join(', ');
       }
 
       states.forEach(state => {
-        if (!this.collectedData.licenses[state]) {
-          this.collectedData.licenses[state] = null;
+        if (!processedData.licenses[state]) {
+          processedData.licenses[state] = null;
         }
       });
     }
 
-    // Step 1
-    try {
-      if (!this.emailId && this.collectedData.email) {
-        console.log('Checking if email already exists in waitlist...');
+    // Calculate waitlist position if needed
+    let waitlistPosition = user.waitlistPosition;
+    
+    if (waitlistPosition === null || waitlistPosition === undefined) {
+      console.log('Assigning a new waitlist position...');
+      
+      const { data: maxPositionData, error: maxPositionError } = await this.supabase
+        .from('waitlist')
+        .select('waitlistPosition')
+        .not('id', 'eq', userId) 
+        .not('waitlistPosition', 'is', null)
+        .order('waitlistPosition', { ascending: false })
+        .limit(1);
         
-        // Check if email already exists
-        const { data: existingUser, error: checkError } = await this.supabase
-          .from('waitlist')
-          .select('id, waitlistPosition')
-          .eq('email', this.collectedData.email)
-          .single();
-          
-        if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "not found" error
-          console.error('Error checking existing email:', checkError);
-          throw new Error(`Failed to check existing email: ${checkError.message}`);
-        }
-        
-        // If user exists, use their ID and return their data
-        if (existingUser) {
-          console.log('Email already exists in waitlist with ID:', existingUser.id);
-          this.emailId = existingUser.id;
-          
-          return { 
-            existing: true, 
-            message: 'This email is already on our waitlist',
-            waitlistPosition: existingUser.waitlistPosition || null
-          };
-        }
-        
-        // If email doesn't exist, proceed with insertion
-        console.log('Inserting new email into Supabase...');
-        
-        const { data: insertedEmail, error: emailError } = await this.supabase
-          .from('waitlist')
-          .insert([{ email: this.collectedData.email }])
-          .select('id') 
-          .single(); 
-
-        if (emailError) {
-          console.error('Error inserting email into Supabase:', emailError);
-          throw new Error(`Failed to insert email: ${emailError.message}`);
-        }
-
-        if (!insertedEmail || !insertedEmail.id) {
-          console.error('Failed to retrieve inserted email ID');
-          throw new Error('Email insertion failed');
-        }
-
-        this.emailId = insertedEmail.id;
-        console.log('Email inserted successfully with ID:', this.emailId);
-
-        return { existing: false, message: 'Email added successfully' }; 
+      if (maxPositionError) {
+        console.error('Error getting max waitlist position:', maxPositionError);
+        throw new Error(`Failed to get max position: ${maxPositionError.message}`);
       }
-
-      // Step 2
-      if (this.emailId && this.collectedData.selectedMembership) {
-        console.log('Attempting to update record with collected data...');
-
-        const { data: currentRecord, error: recordError } = await this.supabase
+      
+      if (maxPositionData && maxPositionData.length > 0 && maxPositionData[0].waitlistPosition !== null) {
+        waitlistPosition = maxPositionData[0].waitlistPosition + 1;
+      } else {
+        const { data: recordsWithPositions, error: countError } = await this.supabase
           .from('waitlist')
-          .select('waitlistPosition, email')
-          .eq('id', this.emailId)
-          .single();
+          .select('id')
+          .not('waitlistPosition', 'is', null)
+          .not('id', 'eq', userId); 
           
-        if (recordError) {
-          console.error('Error checking current record:', recordError);
-          throw new Error(`Failed to check current record: ${recordError.message}`);
+        if (countError) {
+          console.error('Error counting waitlist records with positions:', countError);
+          throw new Error(`Failed to count records: ${countError.message}`);
         }
         
-       
-        
-        let waitlistPosition = currentRecord?.waitlistPosition;
-        
- 
-        if (waitlistPosition === null || waitlistPosition === undefined) {
-          console.log('Assigning a new waitlist position...');
-          
-    
-          const { data: maxPositionData, error: maxPositionError } = await this.supabase
-            .from('waitlist')
-            .select('waitlistPosition')
-            .not('id', 'eq', this.emailId) // Exclude current record
-            .not('waitlistPosition', 'is', null)
-            .order('waitlistPosition', { ascending: false })
-            .limit(1);
-            
-          if (maxPositionError) {
-            console.error('Error getting max waitlist position:', maxPositionError);
-            throw new Error(`Failed to get max position: ${maxPositionError.message}`);
-          }
-          
-         
-          
-    
-          if (maxPositionData && maxPositionData.length > 0 && maxPositionData[0].waitlistPosition !== null) {
-            waitlistPosition = maxPositionData[0].waitlistPosition + 1;
-          } else {
-            
-            const { data: recordsWithPositions, error: countError } = await this.supabase
-              .from('waitlist')
-              .select('id')
-              .not('waitlistPosition', 'is', null)
-              .not('id', 'eq', this.emailId); 
-              
-            if (countError) {
-              console.error('Error counting waitlist records with positions:', countError);
-              throw new Error(`Failed to count records: ${countError.message}`);
-            }
-            
-            waitlistPosition = (recordsWithPositions?.length || 0) + 1;
-          }
-          
-        ;
-        } else {
-          console.log('User already has waitlist position:', waitlistPosition);
-        }
-
-        const { data: updatedData, error: updateError } = await this.supabase
-          .from('waitlist')
-          .update({
-            ...this.collectedData, 
-            email: undefined, 
-            state: this.collectedData.state, 
-            licenses: this.collectedData.licenses,
-            waitlistPosition: waitlistPosition 
-          }) 
-          .eq('id', this.emailId)
-          .select()
-        if (updateError) {
-          console.error('Error updating Supabase record:', updateError);
-          throw new Error(`Failed to update record: ${updateError.message}`);
-        }
-
-       
-        try {
-          await this.syncToEngageBay(updatedData[0]);
-        } catch (engageBayError) {
-          console.error('Failed to sync with EngageBay:', engageBayError);
-        }
-        
-        const result = {
-          ...updatedData[0],
-          existing: !!currentRecord.waitlistPosition
-        };
-        
-        this.collectedData = {};
-        this.emailId = null; 
-
-        return result; 
+        waitlistPosition = (recordsWithPositions?.length || 0) + 1;
       }
-
-    
-      return null;
-    } catch (error) {
-      console.error('Error during Supabase operation:', error);
-      throw new Error(`Supabase operation error: ${error.message}`);
+    } else {
+      console.log('User already has waitlist position:', waitlistPosition);
     }
+
+    // Update user data
+    const { data: updatedData, error: updateError } = await this.supabase
+      .from('waitlist')
+      .update({
+        ...processedData,
+        waitlistPosition: waitlistPosition
+      })
+      .eq('id', userId)
+      .select('*');
+
+    if (updateError) {
+      console.error('Error updating Supabase record:', updateError);
+      throw new Error(`Failed to update record: ${updateError.message}`);
+    }
+
+    // Sync to EngageBay
+    try {
+      await this.syncToEngageBay(updatedData[0]);
+    } catch (engageBayError) {
+      console.error('Failed to sync with EngageBay:', engageBayError);
+    }
+    
+    return {
+      ...updatedData[0],
+      existing: user.waitlistPosition !== null
+    };
   }
 
-
+  /**
+   * Sync user data to EngageBay
+   * @param userData User data to sync
+   * @returns EngageBay response or null on error
+   */
   async syncToEngageBay(userData: any) {
     try {
-   
-      
       let timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       if (userData.created_at) {
         try {
@@ -222,8 +266,8 @@ export class SupabaseService {
         }
       }
       
-    
       const engageBayData = {
+        id: userData.contactId ,
         properties: [
           {
             name: "name",
@@ -240,15 +284,8 @@ export class SupabaseService {
             type: "SYSTEM"
           },
           {
-            name: "email",
-            value: userData.email || '',
-            field_type: "TEXT",
-            is_searchable: false,
-            type: "SYSTEM"
-          },
-          {
             name: "phone",
-            value: userData.phone || '',
+            value: userData.phone|| '',
             field_type: "TEXT",
             is_searchable: false,
             type: "SYSTEM"
@@ -269,7 +306,7 @@ export class SupabaseService {
           },
           {
             name: "Interested_in_Membership_Type",
-            value: userData.selectedMembership.includes("Single Attorney") ? "Solo-Account" : "Firm-Wide",
+            value: userData.selectedMembership?.includes("Single Attorney") ? "Solo-Account" : "Firm-Wide",
             field_type: "LIST",
             is_searchable: true,
             type: "CUSTOM"
@@ -280,10 +317,23 @@ export class SupabaseService {
             field_type: "LIST",
             is_searchable: true,
             type: "SYSTEM"
-          }
+          },
+          {
+            name: "sendEmailUpdates",
+            value: userData.sendEmailUpdates ? "true" : "false",
+            field_type: "CHECKBOX",
+            is_searchable: true,
+            type: "CUSTOM"
+          },
+          {
+            name: "IP_Address",
+            value: userData.clientIp || '',
+            field_type: "TEXT",
+            is_searchable: true,
+            type: "CUSTOM"
+          },
         ]
       };
-      
       
       if (userData.legalPractices && userData.legalPractices.length > 0) {
         engageBayData.properties.push({
@@ -295,9 +345,7 @@ export class SupabaseService {
         });
       }
       
- 
       if (userData.licenses && Object.keys(userData.licenses).length > 0) {
-        
         const licenseStates = Object.entries(userData.licenses)
           .filter(([_, licenseNumber]) => licenseNumber)
           .map(([state, _]) => state);
@@ -312,7 +360,6 @@ export class SupabaseService {
           });
         }
         
-        
         Object.entries(userData.licenses).forEach(([state, licenseNumber]) => {
           if (licenseNumber) {
             engageBayData.properties.push({
@@ -326,11 +373,11 @@ export class SupabaseService {
         });
       }
   
-      console.log("engageBayData prepared:", engageBayData);
+     
       
       // Send data to EngageBay
-      const response = await axios.post(
-        'https://app.engagebay.com/dev/api/panel/subscribers/subscriber',
+      const response = await axios.put(
+        'https://app.engagebay.com/dev/api/panel/subscribers/update-partial',
         engageBayData,
         {
           headers: {
@@ -341,7 +388,6 @@ export class SupabaseService {
         }
       );
       
-     
       return response.data;
     } catch (error) {
       console.error('Error syncing to EngageBay:', error.message);
@@ -351,12 +397,17 @@ export class SupabaseService {
       return null;
     }
   }
+
+  /**
+   * Get most recent email from waitlist
+   * @returns Latest email or null
+   */
   async getEmail(): Promise<string | null> {
     try {
       const { data, error } = await this.supabase
         .from('waitlist')
         .select('email')
-        .order('id', { ascending: false }) // Sort by id in descending order 
+        .order('id', { ascending: false }) 
         .limit(1) 
         .single();
 
@@ -371,6 +422,11 @@ export class SupabaseService {
       throw new Error('Error fetching email.');
     }
   }
+
+  /**
+   * Get Supabase client
+   * @returns SupabaseClient instance
+   */
   getClient(): SupabaseClient {
     return this.supabase;
   }
