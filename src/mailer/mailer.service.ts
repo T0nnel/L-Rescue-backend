@@ -1,18 +1,23 @@
 /* eslint-disable prettier/prettier */
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import * as nodemailer from 'nodemailer';
 import { CronJob } from 'cron';
 
 @Injectable()
-export class MailerService {
+export class MailerService implements OnModuleInit {
   private readonly logger = new Logger(MailerService.name);
   private transporter: nodemailer.Transporter;
-  private pendingFollowUps = new Map<string, { job: CronJob, jobName: string }>();
-  
-  constructor(
-    private schedulerRegistry: SchedulerRegistry
-  ) {
+  private pendingFollowUps = new Map<string, { job: CronJob; jobName: string }>();
+  private readonly defaultFrom = 'LegalRescue <noreply@legalrescue.ai>';
+
+  constructor(private schedulerRegistry: SchedulerRegistry) {}
+
+  async onModuleInit() {
+    await this.initializeTransporter();
+  }
+
+  private async initializeTransporter(): Promise<void> {
     this.transporter = nodemailer.createTransport({
       host: process.env.MAIL_HOST,
       port: parseInt(process.env.MAIL_PORT || '587', 10),
@@ -21,81 +26,120 @@ export class MailerService {
         user: process.env.MAIL_USER,
         pass: process.env.MAIL_PASSWORD,
       },
+      pool: true, // Use connection pooling
+      maxConnections: 5,
+      connectionTimeout: 10000, // 10 seconds
     });
+
+    try {
+      await this.transporter.verify();
+      this.logger.log('SMTP connection established successfully');
+    } catch (error) {
+      this.logger.error('Failed to verify SMTP connection', error.stack);
+      throw new Error('SMTP connection failed');
+    }
   }
 
   async sendWaitlistFollowUp(to: string): Promise<void> {
     const subject = 'Please complete questions for our waitlist';
-    const htmlContent = `
-      <p>To secure your discount offer, please answer the remaining questions on the waitlist.<br/>
-      You will receive an email when LegalRescue.ai officially launches
-      </p>
-    `;
+    const htmlContent = this.generateWaitlistFollowUpContent();
 
-    // Cancel any existing follow-up for this user
     this.cancelPendingFollowUp(to);
 
-    // Schedule new follow-up email in 15 minutes
     const jobName = `followup-${to}-${Date.now()}`;
     const job = new CronJob(
-      new Date(Date.now() + 15 * 60 * 1000), // Run in 15 minutes
+      new Date(Date.now() + 15 * 60 * 1000),
       async () => {
         try {
-          await this.sendEmail(to, subject, htmlContent);
+          await this.sendEmail({
+            to,
+            subject,
+            html: htmlContent,
+          });
           this.pendingFollowUps.delete(to);
         } catch (error) {
-          this.logger.error(`Failed to send follow-up email to ${to}:`, error);
+          this.logger.error(`Failed to send follow-up to ${to}`, {
+            error: error.message,
+            stack: error.stack,
+          });
         }
       },
-      null, // onComplete
-      true, // start
-      'UTC' // timeZone
+      null,
+      true,
+      'UTC'
     );
 
-    // Store both the job and its name
     this.pendingFollowUps.set(to, { job, jobName });
     this.schedulerRegistry.addCronJob(jobName, job);
-    this.logger.log(`Scheduled follow-up email for ${to} in 15 minutes`);
+    this.logger.log(`Scheduled follow-up for ${to} in 15 minutes`);
   }
 
   cancelPendingFollowUp(to: string): void {
     const pending = this.pendingFollowUps.get(to);
     if (pending) {
-      pending.job.stop();
-      this.schedulerRegistry.deleteCronJob(pending.jobName);
-      this.pendingFollowUps.delete(to);
-      this.logger.log(`Cancelled pending follow-up for ${to}`);
+      try {
+        pending.job.stop();
+        this.schedulerRegistry.deleteCronJob(pending.jobName);
+        this.pendingFollowUps.delete(to);
+        this.logger.log(`Cancelled follow-up for ${to}`);
+      } catch (error) {
+        this.logger.error(`Failed to cancel follow-up for ${to}`, error);
+      }
     }
   }
 
   async userCompletedQuestionnaire(to: string): Promise<void> {
     this.cancelPendingFollowUp(to);
-    this.logger.log(`User ${to} completed questionnaire - follow-up cancelled`);
+    this.logger.log(`Follow-up cancelled for ${to} (questionnaire completed)`);
   }
-
 
   async securedEmail(to: string): Promise<void> {
-    const subject = 'Waitlist Discount Secured!';
-    const htmlContent = `
-      <p>Thank you for completing the waitlist form. Your discount offer has been secured for your bar license(s).</p>`;
-
-    await this.sendEmail(to, subject, htmlContent);
+    await this.sendEmail({
+      to,
+      subject: 'Waitlist Discount Secured!',
+      html: this.generateSecuredEmailContent(),
+    });
   }
 
-  private async sendEmail(to: string, subject: string, htmlContent: string): Promise<void> {
+  private async sendEmail(mailOptions: {
+    to: string;
+    subject: string;
+    html: string;
+  }): Promise<void> {
     try {
-      const mailOptions = {
-        from: 'LegalRescue <noreply@legalrescue.ai>',
-        to,
-        subject,
-        html: htmlContent,
+      const fullOptions = {
+        from: this.defaultFrom,
+        ...mailOptions,
       };
 
-      const info = await this.transporter.sendMail(mailOptions);
-      this.logger.log(`Email sent successfully to ${to}: ${info.messageId}`);
+      const info = await this.transporter.sendMail(fullOptions);
+      this.logger.log(`Email sent to ${mailOptions.to}`, {
+        messageId: info.messageId,
+      });
     } catch (error) {
-      this.logger.error(`Failed to send email to ${to}:`, error);
+      this.logger.error(`Email failed to ${mailOptions.to}`, {
+        error: error.message,
+        stack: error.stack,
+        smtpConfig: {
+          host: process.env.MAIL_HOST,
+          port: process.env.MAIL_PORT,
+        },
+      });
       throw error;
     }
+  }
+
+  private generateWaitlistFollowUpContent(): string {
+    return `
+      <p>To secure your discount offer, please answer the remaining questions on the waitlist.<br/>
+      You will receive an email when LegalRescue.ai officially launches
+      </p>
+    `;
+  }
+
+  private generateSecuredEmailContent(): string {
+    return `
+      <p>Thank you for completing the waitlist form. Your discount offer has been secured for your bar license(s).</p>
+    `;
   }
 }
