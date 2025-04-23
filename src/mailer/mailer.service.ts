@@ -1,17 +1,21 @@
 /* eslint-disable prettier/prettier */
 import { Injectable, Logger } from '@nestjs/common';
 import { Resend } from 'resend';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
 
 @Injectable()
 export class MailerService {
   private readonly logger = new Logger(MailerService.name);
   private readonly resendClient: Resend;
 
-  constructor() {
+  constructor(
+    @InjectQueue('email') private emailQueue: Queue,
+  ) {
     this.resendClient = new Resend(process.env.RESEND_API_KEY);
   }
 
-  async sendEmail(to: string): Promise<any> {
+  async sendWaitlistFollowUp(to: string): Promise<any> {
     const subject = 'Please complete questions for our waitlist';
     const htmlContent = `
       <p>To secure your discount offer, please answer the remaining questions on the waitlist.<br/>
@@ -19,8 +23,14 @@ export class MailerService {
       </p>
     `;
 
-    return this.send(to, subject, htmlContent);
+    // Schedule email to be sent in 15 minutes
+    await this.emailQueue.add(
+      'waitlist-followup',
+      { to, subject, htmlContent },
+      { delay: 15 * 60 * 1000 } // 15 minutes in milliseconds
+    );
   }
+
 
   async securedEmail(to: string): Promise<any> {
     const subject = 'Waitlist Discount Secured!';
