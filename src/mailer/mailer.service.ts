@@ -1,43 +1,29 @@
 /* eslint-disable prettier/prettier */
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { SchedulerRegistry } from '@nestjs/schedule';
-import * as nodemailer from 'nodemailer';
 import { CronJob } from 'cron';
+import { Resend } from 'resend';
 
 @Injectable()
 export class MailerService implements OnModuleInit {
   private readonly logger = new Logger(MailerService.name);
-  private transporter: nodemailer.Transporter;
+  private resendClient: Resend;
   private pendingFollowUps = new Map<string, { job: CronJob; jobName: string }>();
   private readonly defaultFrom = 'LegalRescue <noreply@legalrescue.ai>';
 
   constructor(private schedulerRegistry: SchedulerRegistry) {}
 
   async onModuleInit() {
-    await this.initializeTransporter();
+    await this.initializeResendClient();
   }
 
-  private async initializeTransporter(): Promise<void> {
-    this.transporter = nodemailer.createTransport({
-      host: process.env.MAIL_HOST,
-      port: parseInt(process.env.MAIL_PORT || '587', 10),
-      secure: process.env.MAIL_SECURE === 'true',
-      auth: {
-        user: process.env.MAIL_USER,
-        pass: process.env.MAIL_PASSWORD,
-      },
-      pool: true, // Use connection pooling
-      maxConnections: 5,
-      connectionTimeout: 10000, // 10 seconds
-    });
-
-    try {
-      await this.transporter.verify();
-      this.logger.log('SMTP connection established successfully');
-    } catch (error) {
-      this.logger.error('Failed to verify SMTP connection', error.stack);
-      throw new Error('SMTP connection failed');
+  private async initializeResendClient(): Promise<void> {
+    if (!process.env.RESEND_API_KEY) {
+      throw new Error('RESEND_API_KEY environment variable is not set');
     }
+    
+    this.resendClient = new Resend(process.env.RESEND_API_KEY);
+    this.logger.log('Resend client initialized successfully');
   }
 
   async sendWaitlistFollowUp(to: string): Promise<void> {
@@ -59,8 +45,8 @@ export class MailerService implements OnModuleInit {
           this.pendingFollowUps.delete(to);
         } catch (error) {
           this.logger.error(`Failed to send follow-up to ${to}`, {
-            error: error.message,
-            stack: error.stack,
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
           });
         }
       },
@@ -107,23 +93,24 @@ export class MailerService implements OnModuleInit {
     html: string;
   }): Promise<void> {
     try {
-      const fullOptions = {
+      const { data, error } = await this.resendClient.emails.send({
         from: this.defaultFrom,
-        ...mailOptions,
-      };
+        to: mailOptions.to,
+        subject: mailOptions.subject,
+        html: mailOptions.html,
+      });
 
-      const info = await this.transporter.sendMail(fullOptions);
+      if (error) {
+        throw error;
+      }
+
       this.logger.log(`Email sent to ${mailOptions.to}`, {
-        messageId: info.messageId,
+        emailId: data?.id || 'unknown-id',
       });
     } catch (error) {
       this.logger.error(`Email failed to ${mailOptions.to}`, {
-        error: error.message,
-        stack: error.stack,
-        smtpConfig: {
-          host: process.env.MAIL_HOST,
-          port: process.env.MAIL_PORT,
-        },
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
       });
       throw error;
     }
