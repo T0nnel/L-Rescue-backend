@@ -8,7 +8,8 @@ import { CronJob } from 'cron';
 export class MailerService {
   private readonly logger = new Logger(MailerService.name);
   private transporter: nodemailer.Transporter;
-
+  private pendingFollowUps = new Map<string, { job: CronJob, jobName: string }>();
+  
   constructor(
     private schedulerRegistry: SchedulerRegistry
   ) {
@@ -31,19 +32,47 @@ export class MailerService {
       </p>
     `;
 
-    // Schedule email to be sent in 15 minutes
-    const delay = 15 * 60 * 1000; // 15 minutes in milliseconds
-    const job = new CronJob(new Date(Date.now() + delay), async () => {
-      try {
-        await this.sendEmail(to, subject, htmlContent);
-      } catch (error) {
-        this.logger.error(`Failed to send follow-up email to ${to}:`, error);
-      }
-    });
+    // Cancel any existing follow-up for this user
+    this.cancelPendingFollowUp(to);
 
-    this.schedulerRegistry.addCronJob(`followup-${to}-${Date.now()}`, job);
-    job.start();
+    // Schedule new follow-up email in 15 minutes
+    const jobName = `followup-${to}-${Date.now()}`;
+    const job = new CronJob(
+      new Date(Date.now() + 15 * 60 * 1000), // Run in 15 minutes
+      async () => {
+        try {
+          await this.sendEmail(to, subject, htmlContent);
+          this.pendingFollowUps.delete(to);
+        } catch (error) {
+          this.logger.error(`Failed to send follow-up email to ${to}:`, error);
+        }
+      },
+      null, // onComplete
+      true, // start
+      'UTC' // timeZone
+    );
+
+    // Store both the job and its name
+    this.pendingFollowUps.set(to, { job, jobName });
+    this.schedulerRegistry.addCronJob(jobName, job);
+    this.logger.log(`Scheduled follow-up email for ${to} in 15 minutes`);
   }
+
+  cancelPendingFollowUp(to: string): void {
+    const pending = this.pendingFollowUps.get(to);
+    if (pending) {
+      pending.job.stop();
+      this.schedulerRegistry.deleteCronJob(pending.jobName);
+      this.pendingFollowUps.delete(to);
+      this.logger.log(`Cancelled pending follow-up for ${to}`);
+    }
+  }
+
+  async userCompletedQuestionnaire(to: string): Promise<void> {
+    this.cancelPendingFollowUp(to);
+    this.logger.log(`User ${to} completed questionnaire - follow-up cancelled`);
+  }
+
 
   async securedEmail(to: string): Promise<void> {
     const subject = 'Waitlist Discount Secured!';
