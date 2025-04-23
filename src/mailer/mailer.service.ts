@@ -10,6 +10,7 @@ export class MailerService implements OnModuleInit {
   private resendClient: Resend;
   private pendingFollowUps = new Map<string, { job: CronJob; jobName: string }>();
   private readonly defaultFrom = 'LegalRescue <noreply@legalrescue.ai>';
+  private completedQuestionnaires = new Set<string>(); // Track completed questionnaires
 
   constructor(private schedulerRegistry: SchedulerRegistry) {}
 
@@ -27,6 +28,12 @@ export class MailerService implements OnModuleInit {
   }
 
   async sendWaitlistFollowUp(to: string): Promise<void> {
+    // Don't schedule if user already completed questionnaire
+    if (this.completedQuestionnaires.has(to)) {
+      this.logger.log(`Not scheduling follow-up for ${to} - already completed questionnaire`);
+      return;
+    }
+
     const subject = 'Please complete questions for our waitlist';
     const htmlContent = this.generateWaitlistFollowUpContent();
 
@@ -37,11 +44,14 @@ export class MailerService implements OnModuleInit {
       new Date(Date.now() + 15 * 60 * 1000),
       async () => {
         try {
-          await this.sendEmail({
-            to,
-            subject,
-            html: htmlContent,
-          });
+          // Check again right before sending in case status changed
+          if (!this.completedQuestionnaires.has(to)) {
+            await this.sendEmail({
+              to,
+              subject,
+              html: htmlContent,
+            });
+          }
           this.pendingFollowUps.delete(to);
         } catch (error) {
           this.logger.error(`Failed to send follow-up to ${to}`, {
@@ -75,11 +85,15 @@ export class MailerService implements OnModuleInit {
   }
 
   async userCompletedQuestionnaire(to: string): Promise<void> {
+    this.completedQuestionnaires.add(to); // Mark as completed
     this.cancelPendingFollowUp(to);
     this.logger.log(`Follow-up cancelled for ${to} (questionnaire completed)`);
   }
 
   async securedEmail(to: string): Promise<void> {
+    // Mark as completed before sending the secured email
+    this.userCompletedQuestionnaire(to);
+    
     await this.sendEmail({
       to,
       subject: 'Waitlist Discount Secured!',
