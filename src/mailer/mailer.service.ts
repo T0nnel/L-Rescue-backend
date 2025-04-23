@@ -1,21 +1,29 @@
 /* eslint-disable prettier/prettier */
 import { Injectable, Logger } from '@nestjs/common';
-import { Resend } from 'resend';
-import { InjectQueue } from '@nestjs/bull';
-import { Queue } from 'bull';
+import { SchedulerRegistry } from '@nestjs/schedule';
+import * as nodemailer from 'nodemailer';
+import { CronJob } from 'cron';
 
 @Injectable()
 export class MailerService {
   private readonly logger = new Logger(MailerService.name);
-  private readonly resendClient: Resend;
+  private transporter: nodemailer.Transporter;
 
   constructor(
-    @InjectQueue('email') private emailQueue: Queue,
+    private schedulerRegistry: SchedulerRegistry
   ) {
-    this.resendClient = new Resend(process.env.RESEND_API_KEY);
+    this.transporter = nodemailer.createTransport({
+      host: process.env.MAIL_HOST,
+      port: parseInt(process.env.MAIL_PORT || '587', 10),
+      secure: process.env.MAIL_SECURE === 'true',
+      auth: {
+        user: process.env.MAIL_USER,
+        pass: process.env.MAIL_PASSWORD,
+      },
+    });
   }
 
-  async sendWaitlistFollowUp(to: string): Promise<any> {
+  async sendWaitlistFollowUp(to: string): Promise<void> {
     const subject = 'Please complete questions for our waitlist';
     const htmlContent = `
       <p>To secure your discount offer, please answer the remaining questions on the waitlist.<br/>
@@ -24,37 +32,40 @@ export class MailerService {
     `;
 
     // Schedule email to be sent in 15 minutes
-    await this.emailQueue.add(
-      'waitlist-followup',
-      { to, subject, htmlContent },
-      { delay: 15 * 60 * 1000 } // 15 minutes in milliseconds
-    );
+    const delay = 15 * 60 * 1000; // 15 minutes in milliseconds
+    const job = new CronJob(new Date(Date.now() + delay), async () => {
+      try {
+        await this.sendEmail(to, subject, htmlContent);
+      } catch (error) {
+        this.logger.error(`Failed to send follow-up email to ${to}:`, error);
+      }
+    });
+
+    this.schedulerRegistry.addCronJob(`followup-${to}-${Date.now()}`, job);
+    job.start();
   }
 
-
-  async securedEmail(to: string): Promise<any> {
+  async securedEmail(to: string): Promise<void> {
     const subject = 'Waitlist Discount Secured!';
     const htmlContent = `
       <p>Thank you for completing the waitlist form. Your discount offer has been secured for your bar license(s).</p>`;
 
-    return this.send(to, subject, htmlContent);
+    await this.sendEmail(to, subject, htmlContent);
   }
 
-  private async send(to: string, subject: string, htmlContent: string): Promise<any> {
+  private async sendEmail(to: string, subject: string, htmlContent: string): Promise<void> {
     try {
-      const response = await this.resendClient.emails.send({
+      const mailOptions = {
         from: 'LegalRescue <noreply@legalrescue.ai>',
         to,
         subject,
         html: htmlContent,
-      });
+      };
 
-      const responseId = (response as any)?.id || 'Unknown ID';
-      this.logger.log(`Email sent successfully: ${responseId}`);
-
-      return response;
+      const info = await this.transporter.sendMail(mailOptions);
+      this.logger.log(`Email sent successfully to ${to}: ${info.messageId}`);
     } catch (error) {
-      this.logger.error('Error sending email:', error.message || error);
+      this.logger.error(`Failed to send email to ${to}:`, error);
       throw error;
     }
   }
