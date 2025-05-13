@@ -1,8 +1,7 @@
 /* eslint-disable prettier/prettier */
-
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable prefer-const */
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import * as dotenv from 'dotenv';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import axios from 'axios';
@@ -10,7 +9,7 @@ import axios from 'axios';
 dotenv.config();
 
 @Injectable()
-export class SupabaseService {
+export class SupabaseService implements OnModuleInit {
   private supabaseUrl: string = process.env.SUPABASE_URL;
   private supabaseKey: string = process.env.SUPABASE_KEY;
   private supabase: any;
@@ -23,6 +22,60 @@ export class SupabaseService {
     this.supabase = createClient(this.supabaseUrl, this.supabaseKey);
   }
 
+  async onModuleInit() {
+    await this.setupWaitlistTrigger();
+  }
+
+  async setupWaitlistTrigger(): Promise<void> {
+    try {
+      console.log('Setting up waitlist position update trigger...');
+
+      // First create the function
+      const { data: funcData, error: functionError } = await this.supabase.rpc('execute_sql', {
+        sql_text: `
+          CREATE OR REPLACE FUNCTION update_waitlist_positions()
+          RETURNS TRIGGER AS $$
+          BEGIN
+              UPDATE waitlist
+              SET "waitlistPosition" = "waitlistPosition" - 1
+              WHERE "waitlistPosition" > OLD."waitlistPosition";
+              RETURN OLD;
+          END;
+          $$ LANGUAGE plpgsql;
+        `
+      });
+
+      if (functionError || (funcData && funcData.error)) {
+        throw functionError || new Error(funcData.error);
+      }
+
+      // Then create the trigger
+      const { data: triggerData, error: triggerError } = await this.supabase.rpc('execute_sql', {
+        sql_text: `
+          DO $$
+          BEGIN
+              IF NOT EXISTS (
+                  SELECT 1 FROM pg_trigger 
+                  WHERE tgname = 'after_waitlist_delete'
+              ) THEN
+                  CREATE TRIGGER after_waitlist_delete
+                  AFTER DELETE ON waitlist
+                  FOR EACH ROW
+                  EXECUTE FUNCTION update_waitlist_positions();
+              END IF;
+          END $$;
+        `
+      });
+
+      if (triggerError || (triggerData && triggerData.error)) {
+        throw triggerError || new Error(triggerData.error);
+      }
+
+      console.log('Waitlist position update trigger setup successfully');
+    } catch (error) {
+      console.error('Error setting up waitlist trigger:', error);
+    }
+  }
   /**
    * Create a user with email only
    * @param email User's email

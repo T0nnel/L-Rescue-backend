@@ -52,15 +52,25 @@ export class WaitlistService {
    */
   async getWaitlistCount(): Promise<number> {
     const supabase = this.supabaseService.getClient();
-    const { data, error, count } = await supabase
-      .from('waitlist')
-      .select('*', { count: 'exact', head: true }); // Count rows without fetching all data
+    const { data, error } = await supabase
+        .from('waitlist')
+        .select('waitlistPosition')
+        .not('waitlistPosition', 'is', null)  // Exclude null positions
+        .order('waitlistPosition', { ascending: false })
+        .limit(1)
+        .single();
 
     if (error) {
-      console.error('Error fetching waitlist count:', error);
-      throw new Error('Failed to fetch waitlist count.');
+        console.error('Error fetching max position:', error);
+        throw error; // or return 0 if you prefer a default value
     }
 
-    return count || 0;
-  }
+    if (!data) {
+        console.log('No valid waitlist positions found');
+        return 0; // Return 0 if no records exist with non-null positions
+    }
+
+    console.log('Last waitlist position:', data.waitlistPosition);
+    return data.waitlistPosition;
+}
 }
