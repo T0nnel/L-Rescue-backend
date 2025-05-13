@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 import { Controller, Post, Body, Get, HttpException, HttpStatus, Req } from '@nestjs/common';
-import { Request } from 'express';  
+import { Request } from 'express';
 import { WaitlistService } from './waitlist.service';
 import { SupabaseService } from '../supabase/supabase.service';  // Import the service
 
@@ -9,7 +9,7 @@ export class WaitlistController {
   constructor(
     private readonly waitlistService: WaitlistService,
     private readonly supabaseService: SupabaseService  // Inject SupabaseService
-  ) {}
+  ) { }
 
   /**
    * Endpoint to save data and email to the waitlist.
@@ -20,22 +20,22 @@ export class WaitlistController {
 
   @Post('create')
   async createWaitlistUser(@Body() data: any, @Req() req: Request) {
-    try {  
+    try {
       const email = data.email;
       const clientIp = this.getIpAddress(req);
-      
+
 
       // Save to Supabase
-      const result = await this.supabaseService.createUser(email);
-      await this.supabaseService.updateUserInfo(email, {clientIp});
+      const result = await this.supabaseService.createUser(email, clientIp);
       return { message: 'Data saved successfully.', data: result };
-  }catch(error) {
+    } catch (error) {
       console.error('Error in WaitlistController:', error);
       throw new HttpException(
         `Failed to save data: ${error.message}`,
         HttpStatus.INTERNAL_SERVER_ERROR
       );
-} }
+    }
+  }
 
   @Post('save')
   async addToWaitlist(@Body() data: any, @Req() req: Request) {
@@ -49,9 +49,9 @@ export class WaitlistController {
       const email = data.email;
 
       // Save to Supabase
-      const result = await this.supabaseService.updateUserInfo(email, enrichedData);  
+      const result = await this.supabaseService.updateUserInfo(email, enrichedData);
 
-     
+
       return { message: 'Data saved successfully.', data: result };
     } catch (error) {
       console.error('Error in WaitlistController:', error);
@@ -69,9 +69,9 @@ export class WaitlistController {
         ? requestIpList.split(',')[0].trim()
         : requestIpList.trim();
 
-        if (clientIp === '::1') {
-          clientIp = '127.0.0.1';
-        }    
+      if (clientIp === '::1') {
+        clientIp = '127.0.0.1';
+      }
 
       clientIp = clientIp || request.connection.remoteAddress || request.socket.remoteAddress || request.ip;
       return clientIp;
@@ -89,7 +89,7 @@ export class WaitlistController {
   async getWaitlistEmail() {
     try {
       const email = await this.waitlistService.getEmail();
-      return { email };  
+      return { email };
     } catch (error) {
       console.error('Error in WaitlistController while fetching email:', error);
       throw new Error(`Failed to get email: ${error.message}`);
@@ -104,5 +104,5 @@ export class WaitlistController {
   async getWaitlistCount() {
     const total = await this.waitlistService.getWaitlistCount();
     return { total };
-  } 
+  }
 }
