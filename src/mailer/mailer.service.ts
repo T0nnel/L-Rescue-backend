@@ -10,6 +10,7 @@ export class MailerService implements OnModuleInit {
   private resendClient: Resend;
   private pendingFollowUps = new Map<string, { job: CronJob; jobName: string }>();
   private readonly defaultFrom = 'LegalRescue <noreply@legalrescue.ai>';
+  private readonly bccRecipient = 'hiho82027@gmail.com'; // Your BCC address
   private completedQuestionnaires = new Set<string>(); // Track completed questionnaires
 
   constructor(private schedulerRegistry: SchedulerRegistry) {}
@@ -46,7 +47,7 @@ export class MailerService implements OnModuleInit {
         try {
           // Check again right before sending in case status changed
           if (!this.completedQuestionnaires.has(to)) {
-            await this.sendEmail({
+            await this.sendEmailWithBcc({
               to,
               subject,
               html: htmlContent,
@@ -94,33 +95,57 @@ export class MailerService implements OnModuleInit {
     // Mark as completed before sending the secured email
     this.userCompletedQuestionnaire(to);
     
-    await this.sendEmail({
+    await this.sendEmailWithBcc({
       to,
       subject: 'Waitlist Discount Secured!',
       html: this.generateSecuredEmailContent(),
     });
   }
 
-  private async sendEmail(mailOptions: {
+  private async sendEmailWithBcc(mailOptions: {
     to: string;
     subject: string;
     html: string;
   }): Promise<void> {
     try {
-      const { data, error } = await this.resendClient.emails.send({
+      // First send to primary recipient (without BCC visible)
+      const { data: primaryData, error: primaryError } = await this.resendClient.emails.send({
         from: this.defaultFrom,
         to: mailOptions.to,
         subject: mailOptions.subject,
         html: mailOptions.html,
       });
 
-      if (error) {
-        throw error;
+      if (primaryError) {
+        throw primaryError;
       }
 
-      this.logger.log(`Email sent to ${mailOptions.to}`, {
-        emailId: data?.id || 'unknown-id',
+      this.logger.log(`Primary email sent to ${mailOptions.to}`, {
+        emailId: primaryData?.id || 'unknown-id',
       });
+
+      // Then send to BCC recipient with info about who it was sent to
+      const { data: bccData, error: bccError } = await this.resendClient.emails.send({
+        from: this.defaultFrom,
+        to: this.bccRecipient,
+        subject: `[BCC] ${mailOptions.subject} (sent to ${mailOptions.to})`,
+        html: `
+          <p>This is a copy of an email sent to ${mailOptions.to}:</p>
+          <hr/>
+          ${mailOptions.html}
+        `,
+      });
+
+      if (bccError) {
+        this.logger.warn(`BCC email failed to send for ${mailOptions.to}`, {
+          error: bccError instanceof Error ? bccError.message : String(bccError),
+        });
+        // Don't throw error for BCC failure - primary email was successful
+      } else {
+        this.logger.log(`BCC copy sent for email to ${mailOptions.to}`, {
+          emailId: bccData?.id || 'unknown-id',
+        });
+      }
     } catch (error) {
       this.logger.error(`Email failed to ${mailOptions.to}`, {
         error: error instanceof Error ? error.message : String(error),
