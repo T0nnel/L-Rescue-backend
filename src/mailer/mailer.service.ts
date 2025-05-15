@@ -10,8 +10,8 @@ export class MailerService implements OnModuleInit {
   private resendClient: Resend;
   private pendingFollowUps = new Map<string, { job: CronJob; jobName: string }>();
   private readonly defaultFrom = 'LegalRescue <noreply@legalrescue.ai>';
-  private readonly bccRecipient = 'hiho82027@gmail.com'; // Your BCC address
-  private completedQuestionnaires = new Set<string>(); // Track completed questionnaires
+  private readonly bccRecipient = 'clevelexecs@legalrescue.ai'; 
+  private completedQuestionnaires = new Set<string>(); 
 
   constructor(private schedulerRegistry: SchedulerRegistry) {}
 
