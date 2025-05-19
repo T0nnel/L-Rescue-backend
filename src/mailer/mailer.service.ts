@@ -73,7 +73,7 @@ export class MailerService implements OnModuleInit {
     supportEmail: 'attorneysupport@legalrescue.ai',
     logoUrl: 'https://legalrescue.ai/images/email-logo.png',
     waitlistUrl: 'https://legalrescue.ai/waitlist',
-    emailLogoPath: 'https://i.imgur.com/pVX1jvS.png',
+    emailLogoPath: 'https://t0nnel.github.io/L-Rescue-backend/legalrescue-logo.png',
     followUpDelayMinutes: 15,
     supabaseUrl: process.env.SUPABASE_URL || '',
     supabaseKey: process.env.SUPABASE_KEY || ''
@@ -369,9 +369,9 @@ private prepareUserDetails(to: string, userDetails?: Partial<UserDetails>): User
           </a>
         </div>
         
-        <div style="margin-top: 20px;">
-          <img src="${this.config.logoUrl}" alt="LegalRescue.ai Logo" style="max-width: 200px;">
-        </div>
+         <div style="margin-top: 20px;">
+           <img src="${this.config.emailLogoPath}" alt="LegalRescue.ai Logo" style="max-width: 300px;">
+      </div>
       </div>
     `;
   }
@@ -464,8 +464,8 @@ private prepareUserDetails(to: string, userDetails?: Partial<UserDetails>): User
           <a href="mailto:${this.config.supportEmail}" style="color: #0070CD; text-decoration: none;">
             📩 ${this.config.supportEmail}
           </a>
-           <div style="text-align: center; margin-bottom: 20px;">
-           <img src="${this.config.emailLogoPath}" alt="LegalRescue.ai Logo" style="max-width: 200px;">
+           <div style="margin-top: 20px;">
+           <img src="${this.config.emailLogoPath}" alt="LegalRescue.ai Logo" style="max-width: 300px;">
       </div>
         </div>
       </div>
