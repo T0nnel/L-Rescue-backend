@@ -1,6 +1,21 @@
 /* eslint-disable prettier/prettier */
-import { Controller, Post, Body, HttpCode, HttpStatus, Logger, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, Logger, BadRequestException, HttpException, InternalServerErrorException } from '@nestjs/common';
 import { MailerService } from './mailer.service';
+
+interface UserDetails {
+  firstName?: string;
+  lastName?: string;
+  email: string;  
+  barLicenses?: Array<{
+    state: string;
+    licenseNumber: string;
+  }>;
+  legalPractices?: string[];
+  phone?: string;
+  firmName?: string;
+  firmZipCode?: string;
+  membershipType?: string;
+}
 
 @Controller('mailer')
 export class MailerController {
@@ -42,30 +57,58 @@ export class MailerController {
    * Sends a security-related email.
    * @param body - The request body containing the recipient email address.
    */
-  @Post('secured')
-  @HttpCode(HttpStatus.OK)
-  async securedEmail(@Body() body: { to: string }) {
-    const { to } = body;
+@Post('secured')
+@HttpCode(HttpStatus.OK)
+async sendSecuredEmail(
+  @Body() body: { to: string; userDetails: Partial<UserDetails> }
+): Promise<{ success: boolean; message: string }> {
+  const { to, userDetails } = body;
 
-    if (!this.isValidEmail(to)) {
-      this.logger.error(`Invalid email address provided: ${to}`);
-      throw new BadRequestException('Invalid email address.');
-    }
+  // Validate input
+  if (!to || typeof to !== 'string') {
+    this.logger.error('Email address is required', { endpoint: 'secured' });
+    throw new BadRequestException('Email address is required');
+  }
 
-    try {
-      this.logger.log(`Attempting to send secured email to: ${to}`);
-      const response = await this.mailerService.securedEmail(to);
-      this.logger.log(`Security email sent successfully to: ${to}`);
-      return {
-        success: true,
-        message: 'Secured email sent successfully.',
-        data: response,
-      };
-    } catch (error) {
-      this.logger.error(`Failed to send secured email to: ${to}`, error.message || error);
+  if (!this.isValidEmail(to)) {
+    this.logger.error('Invalid email format', { email: to, endpoint: 'secured' });
+    throw new BadRequestException('Invalid email address format');
+  }
+  
+
+  try {
+    this.logger.log('Initiating secured email', { 
+      email: to,
+      hasUserDetails: !!userDetails,
+      endpoint: 'secured' 
+    });
+
+    await this.mailerService.sendSecuredEmail(to, userDetails);
+
+    this.logger.log('Secured email sent successfully', { 
+      email: to,
+      endpoint: 'secured' 
+    });
+
+    return {
+      success: true,
+      message: 'Secured email sent successfully',
+    };
+  } catch (error) {
+    this.logger.error('Failed to send secured email', {
+      email: to,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      endpoint: 'secured'
+    });
+
+    if (error instanceof HttpException) {
       throw error;
     }
+
+    throw new InternalServerErrorException('Failed to send secured email');
   }
+}
 
   /**
    * Validates an email address.
