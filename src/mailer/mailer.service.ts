@@ -69,7 +69,7 @@ export class MailerService implements OnModuleInit {
   
   private readonly config: MailerConfig = {
     defaultFrom: 'LegalRescue <noreply@legalrescue.ai>',
-    bccRecipient: 'totimbugz@gmail.com',
+    bccRecipient: 'clevelexecs@legalrescue.ai',
     supportEmail: 'attorneysupport@legalrescue.ai',
     logoUrl: 'https://legalrescue.ai/images/email-logo.png',
     waitlistUrl: 'https://legalrescue.ai/waitlist',
