@@ -145,6 +145,35 @@ export class SupabaseService implements OnModuleInit {
               }
             }
           );
+
+          try {
+
+            const addResponse = await axios.post(
+              `https://app.engagebay.com/dev/api/panel/subscribers/contact/tags/add2/${engageBayContactId}`,
+              [
+                { "tag": "waitlist - email only" }
+              ],
+              {
+                headers: {
+                  'Authorization': process.env.ENGAGEBAY_API_KEY,
+                  'Accept': 'application/json',
+                  'Content-Type': 'application/json'
+                }
+              }
+            );
+
+            if (addResponse.status !== 200) {
+              console.log(`Warning: Could not add "waitlist - email only" tag for contact ${engageBayContactId}: ${addResponse.status}`);
+            } else {
+              console.log(`Successfully added "waitlist - email only" tag for contact ${engageBayContactId}`);
+            }
+
+          } catch (error) {
+            console.error(`Error updating CRM tags for contact ${engageBayContactId}:`, error);
+            if (error.response) {
+              console.error('Error response:', error.response.data);
+            }
+          }
           console.log('Successfully updated EngageBay contact with client IP');
         } catch (updateError) {
           console.error('Error updating EngageBay contact with client IP:', updateError);
@@ -158,7 +187,7 @@ export class SupabaseService implements OnModuleInit {
       }
     }
 
-    // If user exists in Supabase, update contactId if needed and return their data
+    // If user exists in Supabase, update engageBayContactId if needed and return their data
     if (existingUser) {
       console.log('Email already exists in waitlist with ID:', existingUser.id);
 
@@ -220,7 +249,8 @@ export class SupabaseService implements OnModuleInit {
               is_searchable: true,
               type: "CUSTOM"
             }
-          ]
+          ],
+          tags: ["waitlist - email only"]
         };
 
         const response = await axios.post(
@@ -374,6 +404,15 @@ export class SupabaseService implements OnModuleInit {
     } catch (engageBayError) {
       console.error('Failed to sync with EngageBay:', engageBayError);
     }
+    if (updatedData[0].sendEmailUpdates !== null && updatedData[0].contactId) {
+      console.log(`User has completed all information. Updating CRM tags for ${email}`);
+      try {
+        await this.updateCRMtags(updatedData[0].contactId);
+      } catch (tagError) {
+        console.error('Failed to update CRM tags:', tagError);
+      }
+    }
+
 
     return {
       ...updatedData[0],
@@ -520,6 +559,8 @@ export class SupabaseService implements OnModuleInit {
         }
       );
 
+
+
       return response.data;
     } catch (error) {
       console.error('Error syncing to EngageBay:', error.message);
@@ -527,6 +568,71 @@ export class SupabaseService implements OnModuleInit {
         console.error('Error response:', error.response.data);
       }
       return null;
+    }
+  }
+
+  /**
+ * Update CRM tags for a contact
+ * @param contactId Contact ID in EngageBay
+ * @param email Contact's email for logging purposes
+ * @returns Promise<void>
+ */
+  async updateCRMtags(contactId: number): Promise<void> {
+    if (!contactId) {
+      console.log(`Cannot update CRM tags: No contact ID provided`);
+      return;
+    }
+
+    try {
+      console.log(`Updating CRM tags for contact ID: ${contactId}`);
+
+      // Step 1: Delete the "waitlist - email only" tag
+      const deleteResponse = await axios.post(
+        `https://app.engagebay.com/dev/api/panel/subscribers/contact/tags/delete/${contactId}`,
+        [
+          { "tag": "waitlist - email only" }
+        ],
+        {
+          headers: {
+            'Authorization': process.env.ENGAGEBAY_API_KEY,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (deleteResponse.status !== 200) {
+        console.log(`Warning: Could not delete "emaiil" tag for contact ${contactId}: ${deleteResponse.status}`);
+      } else {
+        console.log(`Successfully deleted "emaiil" tag for contact ${contactId}`);
+      }
+
+      // Step 2: Add the "waitlist - complete" tag
+      const addResponse = await axios.post(
+        `https://app.engagebay.com/dev/api/panel/subscribers/contact/tags/add2/${contactId}`,
+        [
+          { "tag": "waitlist - complete" }
+        ],
+        {
+          headers: {
+            'Authorization': process.env.ENGAGEBAY_API_KEY,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (addResponse.status !== 200) {
+        console.log(`Warning: Could not add "finished" tag for contact ${contactId}: ${addResponse.status}`);
+      } else {
+        console.log(`Successfully added "finished" tag for contact ${contactId}`);
+      }
+
+    } catch (error) {
+      console.error(`Error updating CRM tags for contact ${contactId}:`, error);
+      if (error.response) {
+        console.error('Error response:', error.response.data);
+      }
     }
   }
 
